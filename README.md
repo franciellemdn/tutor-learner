@@ -38,7 +38,6 @@ tutor-learner/
 │   ├── .env.example        # Example environment variables
 │   ├── .env                # Active environment variables (gitignored)
 │   ├── debates.db          # SQLite database file (generated automatically)
-│   ├── requirements.txt    # Backend dependency file
 │   └── uvicorn_run.py      # Entrypoint helper script to launch the server
 ├── frontend/
 │   └── index.html          # Light-themed front-end dashboard
