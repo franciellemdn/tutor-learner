@@ -82,3 +82,5 @@ Simply double-click or open `frontend/index.html` in any web browser.
 3. Select your mode (Local or Cloud).
 4. Click **Start Discussion** and watch the agents converse and evaluate in real-time!
 5. Click on items in the **Debate History** sidebar on the left to review past sessions.
+
+Made by Francielle Marques @franciellemdn with Antigravity2.0

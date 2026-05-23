@@ -785,11 +785,11 @@
             <div class="status-bar">
                 <div class="status-item">
                     <span id="ollama-dot" class="status-dot inactive"></span>
-                    <span>Ollama: <span id="ollama-model-name">...</span></span>
+                    <span>Ollama</span>
                 </div>
                 <div class="status-item">
                     <span id="router-dot" class="status-dot inactive"></span>
-                    <span>OpenRouter: <span id="router-model-name">...</span></span>
+                    <span>OpenRouter</span>
                 </div>
             </div>
         </header>
@@ -884,10 +884,10 @@
 
         const CLOUD_MODELS = [
             { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-            { value: "meta-llama/llama-3-8b-instruct:free", label: "Llama 3 8B (Free)" },
-            { value: "mistralai/mistral-7b-instruct:free", label: "Mistral 7B (Free)" },
-            { value: "openchat/openchat-7b:free", label: "OpenChat 7B (Free)" },
-            { value: "microsoft/phi-3-medium-128k-instruct:free", label: "Phi 3 Medium (Free)" }
+            { value: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (Free)" },
+            { value: "meta-llama/llama-3.2-3b-instruct:free", label: "Llama 3.2 3B (Free)" },
+            { value: "nousresearch/hermes-3-llama-3.1-405b:free", label: "Hermes 3 405B (Free)" },
+            { value: "openrouter/free", label: "Auto Free Router" }
         ];
 
         // Populate model dropdown
@@ -913,24 +913,22 @@
                     
                     // Ollama status
                     const ollamaDot = document.getElementById("ollama-dot");
-                    const ollamaName = document.getElementById("ollama-model-name");
                     if (data.ollama_connected) {
                         ollamaDot.className = "status-dot active";
-                        ollamaName.textContent = data.ollama_model;
+                        ollamaDot.title = `Ollama online (${data.ollama_model})`;
                     } else {
                         ollamaDot.className = "status-dot inactive";
-                        ollamaName.textContent = `${data.ollama_model} (Offline)`;
+                        ollamaDot.title = `Ollama offline`;
                     }
 
                     // OpenRouter status
                     const routerDot = document.getElementById("router-dot");
-                    const routerName = document.getElementById("router-model-name");
                     if (data.openrouter_configured) {
                         routerDot.className = "status-dot active";
-                        routerName.textContent = data.openrouter_model;
+                        routerDot.title = `OpenRouter configured (${data.openrouter_model})`;
                     } else {
                         routerDot.className = "status-dot inactive";
-                        routerName.textContent = "Not Configured";
+                        routerDot.title = `OpenRouter not configured`;
                     }
                 }
             } catch (err) {
@@ -963,10 +961,14 @@
                     const dateObj = new Date(d.created_at);
                     const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+                    // Safely extract model name (fallback for older migrations where model is null)
+                    const modelVal = d.model || "";
+                    const modelName = modelVal ? modelVal.split('/').pop() : "Default";
+
                     item.innerHTML = `
                         <div class="topic" title="${d.topic}">${d.topic}</div>
                         <div class="meta">
-                            <span>${d.mode === 'local' ? '💻' : '☁️'} ${d.model.split('/').pop()}</span>
+                            <span>${d.mode === 'local' ? '💻' : '☁️'} ${modelName}</span>
                             <span>${formattedDate}</span>
                         </div>
                     `;
