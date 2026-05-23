@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tutor & Learner Debate</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(15, 23, 42, 0.08);
+            --glass-highlight: rgba(255, 255, 255, 0.6);
+            
+            --tutor-color: #1d4ed8;
+            --tutor-bg: rgba(59, 130, 246, 0.06);
+            --tutor-border: rgba(59, 130, 246, 0.25);
+            
+            --learner-color: #a21caf;
+            --learner-bg: rgba(217, 70, 239, 0.06);
+            --learner-border: rgba(217, 70, 239, 0.25);
+            
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --success-color: #059669;
+            --error-color: #dc2626;
+            --accent-glow: 0 10px 40px -10px rgba(15, 23, 42, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 950px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: var(--accent-glow);
+            padding: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            position: relative;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 24px;
+            background: linear-gradient(130deg, var(--glass-highlight) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .title-area h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #1d4ed8, #a21caf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.25rem;
+        }
+
+        .title-area p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 0.45rem 0.85rem;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.active {
+            background-color: var(--success-color);
+            box-shadow: 0 0 6px var(--success-color);
+        }
+
+        .status-dot.inactive {
+            background-color: #94a3b8;
+            box-shadow: none;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+            min-height: 480px;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"] {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 0.8rem 1rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        input[type="text"]:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            background: rgba(241, 245, 249, 0.8);
+            padding: 0.35rem;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .mode-option {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0.6rem 0.5rem;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .mode-option input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .mode-option:has(input:checked) {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #1d4ed8 0%, #7e22ce 100%);
+            border: none;
+            color: white;
+            padding: 0.9rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.18);
+        }
+
+        .btn-start:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 6px 16px rgba(29, 78, 216, 0.28);
+        }
+
+        .btn-start:active {
+            transform: translateY(0.5px);
+        }
+
+        .btn-start:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .suggestion-tag {
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #e2e8f0;
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #475569;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+        }
+
+        .suggestion-tag:hover {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }
+
+        /* Discussion Display Area */
+        .display-area {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.35);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+        }
+
+        .chat-header {
+            background: rgba(255, 255, 255, 0.75);
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #1e293b;
+        }
+
+        .chat-body {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scroll-behavior: smooth;
+        }
+
+        .placeholder-message {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #64748b;
+            gap: 0.75rem;
+            padding: 3rem 1rem;
+        }
+
+        .placeholder-icon {
+            font-size: 3rem;
+            opacity: 0.6;
+        }
+
+        .placeholder-message h3 {
+            font-weight: 600;
+            color: #334155;
+        }
+
+        /* Speech Bubbles */
+        .bubble-wrapper {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        .bubble-wrapper.tutor {
+            align-self: flex-start;
+        }
+
+        .bubble-wrapper.learner {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .bubble-header {
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            color: #475569;
+        }
+
+        .bubble-header span.badge {
+            background: #e2e8f0;
+            color: #334155;
+            padding: 0.15rem 0.4rem;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-family: monospace;
+            font-weight: 500;
+        }
+
+        .bubble {
+            padding: 1rem 1.25rem;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+
+        .tutor .bubble {
+            background: var(--tutor-bg);
+            border: 1px solid var(--tutor-border);
+            color: #1e3a8a;
+            border-top-left-radius: 4px;
+        }
+
+        .learner .bubble {
+            background: var(--learner-bg);
+            border: 1px solid var(--learner-border);
+            color: #581c87;
+            border-top-right-radius: 4px;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            display: none;
+        }
+
+        .dark-spinner {
+            border: 3px solid rgba(15, 23, 42, 0.1);
+            border-top-color: #3b82f6;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div class="title-area">
+                <h1>Tutor & Learner</h1>
+                <p>Autonomous Agent debate on any topic</p>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span id="ollama-dot" class="status-dot inactive"></span>
+                    <span>Ollama: <span id="ollama-model-name">...</span></span>
+                </div>
+                <div class="status-item">
+                    <span id="router-dot" class="status-dot inactive"></span>
+                    <span>OpenRouter: <span id="router-model-name">...</span></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Side: Inputs -->
+            <div class="settings-panel">
+                <div class="form-group">
+                    <label for="topic-input">Discussion Topic</label>
+                    <input type="text" id="topic-input" placeholder="e.g. Quantum Computing, Photosynthesis..." autocomplete="off">
+                    <div class="suggestions">
+                        <span class="suggestion-tag" onclick="selectSuggestion('Photosynthesis')">Photosynthesis</span>
+                        <span class="suggestion-tag" onclick="selectSuggestion('Quantum Computing')">Quantum Computing</span>
+                        <span class="suggestion-tag" onclick="selectSuggestion('How LLMs Learn')">How LLMs Learn</span>
+                        <span class="suggestion-tag" onclick="selectSuggestion('French Revolution')">French Revolution</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Execution Mode</label>
+                    <div class="mode-selector">
+                        <label class="mode-option">
+                            <input type="radio" name="execution-mode" value="local" checked>
+                            <span>💻 Local</span>
+                        </label>
+                        <label class="mode-option">
+                            <input type="radio" name="execution-mode" value="cloud">
+                            <span>☁️ Cloud</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button id="btn-start" class="btn-start" onclick="startDiscussion()">
+                    <span>Start Discussion</span>
+                    <div id="btn-spinner" class="spinner"></div>
+                </button>
+            </div>
+
+            <!-- Right Side: Discussion Visualizer -->
+            <div class="display-area">
+                <div class="chat-header">
+                    <span>Live Conversation</span>
+                    <span id="active-mode-badge" style="font-size: 0.8rem; font-weight: 600; color: #475569;"></span>
+                </div>
+                <div class="chat-body" id="chat-body">
+                    <div class="placeholder-message" id="placeholder">
+                        <div class="placeholder-icon">🎓</div>
+                        <h3>No Topic Active</h3>
+                        <p>Fill out the settings on the left and start the discussion to see the Tutor and Learner agents interact autonomously!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000";
+
+        // Query server health status on load
+        async function checkHealth() {
+            try {
+                const res = await fetch(`${API_URL}/health`);
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Ollama status
+                    const ollamaDot = document.getElementById("ollama-dot");
+                    const ollamaName = document.getElementById("ollama-model-name");
+                    if (data.ollama_connected) {
+                        ollamaDot.className = "status-dot active";
+                        ollamaName.textContent = data.ollama_model;
+                    } else {
+                        ollamaDot.className = "status-dot inactive";
+                        ollamaName.textContent = `${data.ollama_model} (Offline)`;
+                    }
+
+                    // OpenRouter status
+                    const routerDot = document.getElementById("router-dot");
+                    const routerName = document.getElementById("router-model-name");
+                    if (data.openrouter_configured) {
+                        routerDot.className = "status-dot active";
+                        routerName.textContent = data.openrouter_model;
+                    } else {
+                        routerDot.className = "status-dot inactive";
+                        routerName.textContent = "Not Configured";
+                    }
+                }
+            } catch (err) {
+                console.error("Health check failed", err);
+            }
+        }
+
+        // Suggestions filler
+        function selectSuggestion(text) {
+            document.getElementById("topic-input").value = text;
+        }
+
+        // Execute debate
+        async function startDiscussion() {
+            const topicInput = document.getElementById("topic-input");
+            const topic = topicInput.value.trim();
+            if (!topic) {
+                alert("Please enter a topic first!");
+                return;
+            }
+
+            const mode = document.querySelector('input[name="execution-mode"]:checked').value;
+            
+            const btn = document.getElementById("btn-start");
+            const spinner = document.getElementById("btn-spinner");
+            const chatBody = document.getElementById("chat-body");
+            const placeholder = document.getElementById("placeholder");
+            const modeBadge = document.getElementById("active-mode-badge");
+
+            // UI adjustments
+            btn.disabled = true;
+            spinner.style.display = "block";
+            btn.querySelector("span").textContent = "Debating...";
+            if (placeholder) placeholder.style.display = "none";
+            chatBody.innerHTML = `
+                <div class="placeholder-message" style="gap: 0.5rem;">
+                    <div class="spinner dark-spinner" style="display: block; width: 32px; height: 32px; border-width: 4px;"></div>
+                    <p style="margin-top: 1rem; font-weight: 500; color: #334155;">Orchestrating agents via LangGraph...</p>
+                    <p style="font-size: 0.8rem; opacity: 0.7; color: #64748b;">(Running ${mode === 'local' ? 'Local Ollama models' : 'Cloud OpenRouter models'})</p>
+                </div>
+            `;
+            modeBadge.textContent = mode === "local" ? "💻 Local Mode" : "☁️ Cloud Mode";
+
+            try {
+                const response = await fetch(`${API_URL}/discuss`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ topic, mode })
+                });
+
+                if (!response.ok) {
+                    const errorDetail = await response.json();
+                    throw new Error(errorDetail.detail || "Server error occurred");
+                }
+
+                const data = await response.json();
+                renderConversation(data.messages);
+            } catch (error) {
+                chatBody.innerHTML = `
+                    <div class="placeholder-message" style="color: var(--error-color);">
+                        <div style="font-size: 3rem;">⚠️</div>
+                        <h3 style="color: var(--error-color)">Execution Failed</h3>
+                        <p style="color: #64748b; max-width: 400px; margin: 0.5rem auto;">${error.message}</p>
+                        <button class="btn-start" style="padding: 0.5rem 1rem; font-size: 0.85rem; margin-top: 1rem; box-shadow: none;" onclick="checkHealth(); startDiscussion();">Retry</button>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = "none";
+                btn.querySelector("span").textContent = "Start Discussion";
+            }
+        }
+
+        // Render response list
+        function renderConversation(messages) {
+            const chatBody = document.getElementById("chat-body");
+            chatBody.innerHTML = "";
+
+            if (!messages || messages.length === 0) {
+                chatBody.innerHTML = `<p style="text-align: center; color: var(--text-muted);">No messages generated.</p>`;
+                return;
+            }
+
+            messages.forEach((msg, idx) => {
+                const wrapper = document.createElement("div");
+                const isTutor = msg.sender === "tutor";
+                wrapper.className = `bubble-wrapper ${isTutor ? 'tutor' : 'learner'}`;
+                
+                // Add tiny delay animations for each speech bubble
+                wrapper.style.animationDelay = `${idx * 0.1}s`;
+
+                const header = document.createElement("div");
+                header.className = "bubble-header";
+                
+                const icon = isTutor ? "👨‍🏫 Tutor" : "🧑‍💻 Learner";
+                header.innerHTML = `
+                    <strong>${icon}</strong>
+                    <span class="badge">${msg.model_used}</span>
+                `;
+
+                const bubble = document.createElement("div");
+                bubble.className = "bubble";
+                bubble.textContent = msg.content;
+
+                wrapper.appendChild(header);
+                wrapper.appendChild(bubble);
+                chatBody.appendChild(wrapper);
+            });
+
+            // Scroll to bottom
+            setTimeout(() => {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 100);
+        }
+
+        // Initial setup
+        window.addEventListener("DOMContentLoaded", () => {
+            checkHealth();
+            // Poll health state every 10 seconds to detect Ollama starts
+            setInterval(checkHealth, 10000);
+        });
+    </script>
+</body>
+</html>
