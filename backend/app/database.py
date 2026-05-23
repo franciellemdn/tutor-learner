@@ -107,3 +107,11 @@ def get_debate_metadata(debate_id: int):
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
+
+def delete_debate(debate_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM messages WHERE debate_id = ?", (debate_id,))
+    cursor.execute("DELETE FROM debates WHERE id = ?", (debate_id,))
+    conn.commit()
+    conn.close()

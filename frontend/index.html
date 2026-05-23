@@ -198,10 +198,11 @@
         }
 
         .history-item {
+            position: relative;
             background: white;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
-            padding: 0.7rem 0.8rem;
+            padding: 0.7rem 2rem 0.7rem 0.8rem;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
@@ -228,6 +229,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding-right: 0.5rem;
         }
 
         .history-item .meta {
@@ -235,6 +237,37 @@
             justify-content: space-between;
             font-size: 0.7rem;
             color: #64748b;
+            padding-right: 0.5rem;
+        }
+
+        .btn-delete-history {
+            position: absolute;
+            top: 50%;
+            right: 0.5rem;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.2rem;
+            line-height: 1;
+            cursor: pointer;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+
+        .history-item:hover .btn-delete-history {
+            opacity: 1;
+        }
+
+        .btn-delete-history:hover {
+            background: rgba(220, 38, 38, 0.08);
+            color: #dc2626;
         }
 
         .history-empty {
@@ -971,12 +1004,43 @@
                             <span>${d.mode === 'local' ? '💻' : '☁️'} ${modelName}</span>
                             <span>${formattedDate}</span>
                         </div>
+                        <button class="btn-delete-history" onclick="deleteHistory(event, ${d.id})" title="Delete Debate">×</button>
                     `;
                     listEl.appendChild(item);
                 });
             } catch (err) {
                 console.error(err);
                 listEl.innerHTML = `<div class="history-empty" style="color: var(--error-color)">Error loading history.</div>`;
+            }
+        }
+
+        // Delete debate from database and update UI
+        async function deleteHistory(event, id) {
+            event.stopPropagation();
+            if (!confirm("Are you sure you want to delete this debate? This action cannot be undone.")) {
+                return;
+            }
+            
+            try {
+                const activeItem = document.getElementById(`history-${id}`);
+                const wasActive = activeItem && activeItem.classList.contains("active");
+
+                const res = await fetch(`${API_URL}/debates/${id}`, {
+                    method: "DELETE"
+                });
+                
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Failed to delete debate");
+                }
+                
+                if (wasActive) {
+                    newDebate();
+                }
+                loadHistory();
+            } catch (err) {
+                console.error("Error deleting debate:", err);
+                alert(`Error deleting debate: ${err.message}`);
             }
         }
 

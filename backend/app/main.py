@@ -14,6 +14,7 @@ from app.database import (
     create_debate,
     save_message,
     save_debate_evaluation,
+    delete_debate,
     DB_PATH
 )
 from app.graph.state import DiscussionState
@@ -61,6 +62,14 @@ async def get_debate(debate_id: int):
                     pass
                 
         return {"messages": messages, "model": model, "evaluation": evaluation}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.delete("/debates/{debate_id}")
+async def remove_debate(debate_id: int):
+    try:
+        delete_debate(debate_id)
+        return {"status": "success", "message": "Debate deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
