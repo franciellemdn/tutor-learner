@@ -24,15 +24,26 @@ It simulates an autonomous discussion between a **Tutor Agent** and a **Learner 
 ```text
 tutor-learner/
 ├── backend/
-│   ├── .env.example       # Example environment variables
-│   ├── .env               # Active environment variables (gitignored)
-│   ├── debates.db         # SQLite database file (generated automatically)
-│   ├── main.py            # FastAPI, SQLite CRUD, WebSockets, and LangGraph Node definitions
-│   └── requirements.txt   # Backend dependency file
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── config.py       # Environment variable parsing and cleaning
+│   │   ├── database.py     # SQLite connection context and CRUD operations
+│   │   ├── models.py       # Dynamic LangChain LLM instantiators
+│   │   ├── graph/
+│   │   │   ├── __init__.py
+│   │   │   ├── state.py    # TypedDict schemas for discussion state
+│   │   │   ├── nodes.py    # Tutor, Learner, and Evaluator agent functions
+│   │   │   └── workflow.py # StateGraph registration and compilation
+│   │   └── main.py         # FastAPI WebSocket and HTTP endpoints
+│   ├── .env.example        # Example environment variables
+│   ├── .env                # Active environment variables (gitignored)
+│   ├── debates.db          # SQLite database file (generated automatically)
+│   ├── requirements.txt    # Backend dependency file
+│   └── uvicorn_run.py      # Entrypoint helper script to launch the server
 ├── frontend/
-│   └── index.html         # Light-themed front-end dashboard
-├── requirements.txt       # Root level copy of dependencies
-└── README.md              # Project documentation
+│   └── index.html          # Light-themed front-end dashboard
+├── requirements.txt        # Root level copy of dependencies
+└── README.md               # Project documentation
 ```
 
 ---
@@ -67,10 +78,10 @@ pip install -r requirements.txt
 ```
 
 #### Step 2: Start the API Server
-Run the FastAPI development server:
+Run the launcher script:
 ```bash
 cd backend
-uvicorn main:app --reload
+python uvicorn_run.py
 ```
 The server will start on [http://localhost:8000](http://localhost:8000). You can verify its health at [http://localhost:8000/health](http://localhost:8000/health).
 
