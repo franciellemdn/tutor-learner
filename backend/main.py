@@ -446,11 +446,14 @@ async def websocket_discuss(websocket: WebSocket):
         }
 
         # 2. Execute graph step-by-step and stream results in real-time
-        async for chunk in discussion_graph.astream(initial_state):
+        async for chunk in discussion_graph.astream(initial_state, stream_mode="updates"):
+            print(f"[WS DEBUG] Chunk received: {chunk}")
             for node_name, state_update in chunk.items():
+                print(f"[WS DEBUG] Processing node: '{node_name}'")
                 if node_name == "evaluator":
                     # Evaluator completed!
                     eval_data = state_update.get("evaluation", {})
+                    print(f"[WS DEBUG] Evaluator output data: {eval_data}")
                     
                     # Save evaluation JSON string to DB
                     save_debate_evaluation(debate_id, json.dumps(eval_data))
