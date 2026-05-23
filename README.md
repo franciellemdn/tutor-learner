@@ -1,17 +1,21 @@
-# Autonomous Tutor & Learner Agent Debate
+# Autonomous Tutor & Learner Agent Debate with AI Scorecard
 
-A simple, educational, and production-ready portfolio project built with **LangChain**, **LangGraph**, **FastAPI**, **Ollama**, and **OpenRouter**. 
+A production-grade, educational portfolio project built with **LangChain**, **LangGraph**, **FastAPI (WebSockets)**, **SQLite**, **Ollama**, and **OpenRouter**.
 
-It simulates an autonomous discussion between a **Tutor Agent** and a **Learner Agent** on any user-selected topic. The user can choose to run this debate **entirely locally** using local models via Ollama or **in the cloud** using frontier models via OpenRouter.
+It simulates an autonomous discussion between a **Tutor Agent** and a **Learner Agent** on any user-selected topic, followed by an objective **AI Evaluator Agent** (LLM-as-a-Judge) that scores the session and provides detailed study recommendations. The entire workflow runs in **real-time** over WebSockets, letting you watch the conversation unfold turn-by-turn.
 
 ---
 
-## 🌟 Key Concepts Demonstrated
+## 🌟 Key Features
 
-- **LangGraph Stateful Orchestration**: Implements a cyclic agent loop (Tutor 🔄 Learner) with message exchange and turn-count limits.
-- **Dynamic Model Selection**: Demonstrates how to write code that swaps between local API calls (Ollama) and cloud APIs (OpenRouter) on-the-fly.
-- **FastAPI Backend Integration**: Exposes the graph execution over clean HTTP endpoints. Includes an active health checking routine to inspect local/cloud model state.
-- **Aesthetic Light UI**: A modern, responsive single-page dashboard built with Vanilla CSS variables and clean Javascript for real-time visualization.
+- **Real-Time WebSocket Streaming**: Dialogue turns and evaluation results are streamed dynamically from the server to the browser as the graph executes.
+- **SQLite Database Persistence**: Saves all debate sessions and individual chat messages in a local `debates.db` database.
+- **Debate History Sidebar**: Allows users to navigate and reload any past debate and review the full conversation transcript and AI Scorecard.
+- **AI Evaluator Node (LLM-as-a-Judge)**: Analyzes the complete transcript, scores the student's understanding from 1 to 10, identifies key strengths/gaps, and recommends next steps.
+- **Flexible Execution Modes**:
+  - 💻 **Local Mode**: Runs entirely offline using local LLMs via **Ollama**.
+  - ☁️ **Cloud Mode**: Runs in the cloud using frontier LLMs via **OpenRouter**.
+- **Aesthetic Light UI**: A clean, modern dashboard built with Vanilla CSS variables and reactive JavaScript.
 
 ---
 
@@ -22,7 +26,8 @@ tutor-learner/
 ├── backend/
 │   ├── .env.example       # Example environment variables
 │   ├── .env               # Active environment variables (gitignored)
-│   ├── main.py            # FastAPI endpoints, LangGraph, and Agent nodes
+│   ├── debates.db         # SQLite database file (generated automatically)
+│   ├── main.py            # FastAPI, SQLite CRUD, WebSockets, and LangGraph Node definitions
 │   └── requirements.txt   # Backend dependency file
 ├── frontend/
 │   └── index.html         # Light-themed front-end dashboard
@@ -56,28 +61,24 @@ tutor-learner/
 ### Running the Project
 
 #### Step 1: Install Dependencies
-Open your terminal in the `backend/` directory, activate your virtual environment, and run:
+Open your terminal in the directory and ensure your python environment (e.g. your conda environment) is active, then run:
 ```bash
 pip install -r requirements.txt
 ```
-*(On Windows with Anaconda, make sure your conda/DLL paths are set up if you encounter SSL import warnings).*
 
-#### Step 2: Start the Backend Server
+#### Step 2: Start the API Server
 Run the FastAPI development server:
 ```bash
+cd backend
 uvicorn main:app --reload
 ```
 The server will start on [http://localhost:8000](http://localhost:8000). You can verify its health at [http://localhost:8000/health](http://localhost:8000/health).
 
 #### Step 3: Open the Frontend
-Simply double-click or open `frontend/index.html` in any web browser. 
+Simply double-click or open `frontend/index.html` in any web browser.
 
-1. Check the top status indicators to see if Ollama or OpenRouter is successfully connected.
-2. Enter a topic (e.g., *Quantum Computing*).
+1. Verify connection indicators (top-right status bar) show green for your active model providers.
+2. Enter a topic (e.g., *French Revolution*).
 3. Select your mode (Local or Cloud).
-4. Click **Start Discussion** and watch the agents converse autonomously!
-
-
-Made by Francielle Marques @franciellemdn with Antigravity and Gemini 3.5 Flash
-
-
+4. Click **Start Discussion** and watch the agents converse and evaluate in real-time!
+5. Click on items in the **Debate History** sidebar on the left to review past sessions.
