@@ -76,3 +76,8 @@ Simply double-click or open `frontend/index.html` in any web browser.
 2. Enter a topic (e.g., *Quantum Computing*).
 3. Select your mode (Local or Cloud).
 4. Click **Start Discussion** and watch the agents converse autonomously!
+
+
+Made by Francielle Marques @franciellemdn with Antigravity and Gemini 3.5 Flash
+
+
