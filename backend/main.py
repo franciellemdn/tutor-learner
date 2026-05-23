@@ -49,9 +49,16 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             topic TEXT NOT NULL,
             mode TEXT NOT NULL,
+            evaluation TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Database migration: add evaluation column if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE debates ADD COLUMN evaluation TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+        
     # Create messages table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS messages (
@@ -88,6 +95,16 @@ def save_message(debate_id: int, sender: str, content: str, model_used: str):
     cursor.execute(
         "INSERT INTO messages (debate_id, sender, content, model_used) VALUES (?, ?, ?, ?)",
         (debate_id, sender, content, model_used)
+    )
+    conn.commit()
+    conn.close()
+
+def save_debate_evaluation(debate_id: int, evaluation_json: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE debates SET evaluation = ? WHERE id = ?",
+        (evaluation_json, debate_id)
     )
     conn.commit()
     conn.close()
@@ -129,6 +146,7 @@ class DiscussionState(TypedDict):
     mode: Literal["local", "cloud"]
     messages: List[ChatMessage]
     turn_count: int
+    evaluation: dict
 
 # Helper to get the correct LLM model client
 def get_llm(mode: str, role: str):
@@ -263,10 +281,73 @@ def learner_node(state: DiscussionState) -> DiscussionState:
         "turn_count": state["turn_count"] + 1
     }
 
+def evaluator_node(state: DiscussionState) -> DiscussionState:
+    messages = state["messages"]
+    topic = state["topic"]
+    mode = state["mode"]
+    
+    llm, model_name = get_llm(mode, "evaluator")
+    
+    history_str = ""
+    for msg in messages:
+        sender_name = "Tutor" if msg["sender"] == "tutor" else "Learner"
+        history_str += f"{sender_name}: {msg['content']}\n"
+        
+    system_prompt = (
+        "You are an objective AI Tutor Evaluator. Your job is to analyze the debate/conversation between the Tutor and the Learner "
+        f"about the topic '{topic}' and grade the Learner's performance and conceptual understanding.\n"
+        "You MUST respond ONLY with a raw JSON object (no markdown block, no ```json, no extra text). "
+        "The JSON object must follow this schema exactly:\n"
+        "{\n"
+        "  \"score\": <integer between 1 and 10>,\n"
+        "  \"summary\": \"<2-3 sentence overall critique of the learner's understanding>\",\n"
+        "  \"strengths\": [\"<strength 1>\", \"<strength 2>\"],\n"
+        "  \"gaps\": [\"<concept misunderstood or missed 1>\", \"<concept misunderstood 2>\"],\n"
+        "  \"recommendations\": [\"<actionable reading or advice 1>\", \"<actionable reading or advice 2>\"]\n"
+        "}"
+    )
+    
+    user_prompt = (
+        f"Here is the dialogue transcript:\n{history_str}\n"
+        "Please evaluate the Learner and return the raw JSON scorecard."
+    )
+    
+    try:
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        content = response.content.strip()
+        
+        # Clean potential markdown wrapping
+        if content.startswith("```"):
+            lines = content.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].startswith("```"):
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+            
+        evaluation_data = json.loads(content)
+    except Exception as e:
+        evaluation_data = {
+            "score": 0,
+            "summary": f"Could not perform evaluation. Error: {str(e)}",
+            "strengths": ["Evaluation failed"],
+            "gaps": ["Error parsing response"],
+            "recommendations": ["Ensure API keys are configured and local models are pulled"]
+        }
+        
+    return {
+        **state,
+        "evaluation": evaluation_data
+    }
+
 # Router logic
 def router_condition(state: DiscussionState) -> str:
+    # Stop debate and send to evaluator after 6 turns
     if state["turn_count"] >= 6:
-        return "end"
+        return "evaluator"
     
     last_sender = state["messages"][-1]["sender"]
     if last_sender == "tutor":
@@ -279,6 +360,7 @@ workflow = StateGraph(DiscussionState)
 
 workflow.add_node("tutor", tutor_node)
 workflow.add_node("learner", learner_node)
+workflow.add_node("evaluator", evaluator_node)
 
 workflow.set_entry_point("tutor")
 
@@ -287,7 +369,7 @@ workflow.add_conditional_edges(
     router_condition,
     {
         "learner": "learner",
-        "end": END
+        "evaluator": "evaluator"
     }
 )
 workflow.add_conditional_edges(
@@ -295,9 +377,10 @@ workflow.add_conditional_edges(
     router_condition,
     {
         "tutor": "tutor",
-        "end": END
+        "evaluator": "evaluator"
     }
 )
+workflow.add_edge("evaluator", END)
 
 discussion_graph = workflow.compile()
 
@@ -316,7 +399,23 @@ async def list_debates():
 async def get_debate(debate_id: int):
     try:
         messages = get_debate_messages(debate_id)
-        return {"messages": messages}
+        
+        # Fetch the evaluation metadata
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT evaluation FROM debates WHERE id = ?", (debate_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        evaluation = None
+        if row and row["evaluation"]:
+            try:
+                evaluation = json.loads(row["evaluation"])
+            except Exception:
+                pass
+                
+        return {"messages": messages, "evaluation": evaluation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -342,17 +441,29 @@ async def websocket_discuss(websocket: WebSocket):
             "topic": topic,
             "mode": mode,
             "messages": [],
-            "turn_count": 0
+            "turn_count": 0,
+            "evaluation": {}
         }
 
         # 2. Execute graph step-by-step and stream results in real-time
         async for chunk in discussion_graph.astream(initial_state):
-            # chunk holds updates from the executed node (e.g., {"tutor": {...}})
             for node_name, state_update in chunk.items():
-                if "messages" in state_update and state_update["messages"]:
+                if node_name == "evaluator":
+                    # Evaluator completed!
+                    eval_data = state_update.get("evaluation", {})
+                    
+                    # Save evaluation JSON string to DB
+                    save_debate_evaluation(debate_id, json.dumps(eval_data))
+                    
+                    # Stream evaluation data to client
+                    await websocket.send_json({
+                        "type": "evaluation",
+                        **eval_data
+                    })
+                elif "messages" in state_update and state_update["messages"]:
                     last_msg = state_update["messages"][-1]
                     
-                    # Save each message as it generates
+                    # Save message
                     save_message(
                         debate_id=debate_id,
                         sender=last_msg["sender"],
@@ -360,7 +471,7 @@ async def websocket_discuss(websocket: WebSocket):
                         model_used=last_msg["model_used"]
                     )
                     
-                    # Send message data immediately to client
+                    # Send message
                     await websocket.send_json({
                         "type": "message",
                         "sender": last_msg["sender"],

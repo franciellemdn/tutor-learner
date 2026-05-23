@@ -27,6 +27,7 @@
             --text-main: #0f172a;
             --text-muted: #475569;
             --success-color: #059669;
+            --warning-color: #d97706;
             --error-color: #dc2626;
             --accent-glow: 0 10px 40px -10px rgba(15, 23, 42, 0.08);
         }
@@ -140,7 +141,7 @@
             display: grid;
             grid-template-columns: 260px 1fr;
             gap: 1.5rem;
-            min-height: 520px;
+            min-height: 550px;
         }
 
         /* LEFT COLUMN: Sidebar History */
@@ -152,7 +153,7 @@
             border: 1px solid var(--glass-border);
             border-radius: 16px;
             padding: 1rem;
-            max-height: 550px;
+            max-height: 600px;
         }
 
         .sidebar-header {
@@ -404,7 +405,7 @@
             background: rgba(255, 255, 255, 0.35);
             overflow: hidden;
             box-shadow: 0 4px 10px rgba(0,0,0,0.01);
-            max-height: 400px;
+            max-height: 480px;
         }
 
         .chat-header {
@@ -438,7 +439,7 @@
             text-align: center;
             color: #64748b;
             gap: 0.5rem;
-            padding: 3rem 1rem;
+            padding: 4rem 1rem;
         }
 
         .placeholder-icon {
@@ -511,6 +512,173 @@
             border-top-right-radius: 4px;
         }
 
+        /* ==========================================
+        EVALUATION SCORECARD UI
+        ========================================== */
+        .scorecard-container {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: 0 4px 15px rgba(15, 23, 42, 0.03);
+            border-top: 4px solid var(--learner-color);
+            animation: slideIn 0.4s ease forwards;
+        }
+
+        .scorecard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 0.75rem;
+        }
+
+        .scorecard-title-group h4 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .scorecard-title-group p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        .score-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 2px solid transparent;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        }
+
+        .score-high {
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--success-color);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .score-mid {
+            background: rgba(217, 119, 6, 0.08);
+            color: var(--warning-color);
+            border-color: rgba(217, 119, 6, 0.3);
+        }
+
+        .score-low {
+            background: rgba(220, 38, 38, 0.08);
+            color: var(--error-color);
+            border-color: rgba(220, 38, 38, 0.3);
+        }
+
+        .scorecard-summary {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #334155;
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            border-left: 3px solid #cbd5e1;
+        }
+
+        .scorecard-sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .scorecard-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .scorecard-col h5 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.15rem;
+        }
+
+        .scorecard-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .scorecard-list li {
+            font-size: 0.8rem;
+            line-height: 1.4;
+            display: flex;
+            gap: 0.4rem;
+            align-items: flex-start;
+        }
+
+        .scorecard-list.strengths li::before {
+            content: '✓';
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .scorecard-list.gaps li::before {
+            content: '⚠';
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+
+        .scorecard-recommendations {
+            background: rgba(59, 130, 246, 0.04);
+            border: 1px solid rgba(59, 130, 246, 0.12);
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .scorecard-recommendations h5 {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .scorecard-recommendations ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .scorecard-recommendations ul li {
+            font-size: 0.8rem;
+            color: #2563eb;
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .scorecard-recommendations ul li::before {
+            content: '📚';
+            font-size: 0.75rem;
+        }
+
         /* Animations */
         @keyframes slideIn {
             from {
@@ -568,6 +736,9 @@
             }
             .container {
                 padding: 1.25rem;
+            }
+            .scorecard-sections {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -778,6 +949,9 @@
                 if (!res.ok) throw new Error("Failed to fetch messages");
                 const data = await res.json();
                 renderConversation(data.messages);
+                if (data.evaluation) {
+                    renderEvaluationCard(data.evaluation);
+                }
             } catch (err) {
                 chatBody.innerHTML = `
                     <div class="placeholder-message" style="color: var(--error-color)">
@@ -877,6 +1051,8 @@
 
                 if (data.type === "message") {
                     appendMessageBubble(data);
+                } else if (data.type === "evaluation") {
+                    renderEvaluationCard(data);
                 } else if (data.type === "complete") {
                     console.log("Debate complete!");
                     loadHistory(); // Reload sidebar to show this new debate session
@@ -942,6 +1118,65 @@
 
             // Auto scroll to bottom
             chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // Render evaluation scorecard card at the bottom of the discussion
+        function renderEvaluationCard(evalData) {
+            const chatBody = document.getElementById("chat-body");
+
+            const card = document.createElement("div");
+            card.className = "scorecard-container";
+
+            // Determine score class/color
+            let scoreClass = "score-mid";
+            if (evalData.score >= 8) scoreClass = "score-high";
+            else if (evalData.score <= 4) scoreClass = "score-low";
+
+            const strengthsList = evalData.strengths.map(s => `<li>${s}</li>`).join("");
+            const gapsList = evalData.gaps.map(g => `<li>${g}</li>`).join("");
+            const recsList = evalData.recommendations.map(r => `<li>${r}</li>`).join("");
+
+            card.innerHTML = `
+                <div class="scorecard-header">
+                    <div class="scorecard-title-group">
+                        <h4>🎯 AI Scorecard & Evaluation</h4>
+                        <p>Detailed performance report generated by LLM Evaluator</p>
+                    </div>
+                    <div class="score-circle ${scoreClass}" title="Learner's Score">
+                        ${evalData.score}/10
+                    </div>
+                </div>
+                <div class="scorecard-summary">
+                    <strong>Summary:</strong> ${evalData.summary}
+                </div>
+                <div class="scorecard-sections">
+                    <div class="scorecard-col">
+                        <h5>Strengths</h5>
+                        <ul class="scorecard-list strengths">
+                            ${strengthsList}
+                        </ul>
+                    </div>
+                    <div class="scorecard-col">
+                        <h5>Areas to Improve</h5>
+                        <ul class="scorecard-list gaps">
+                            ${gapsList}
+                        </ul>
+                    </div>
+                </div>
+                <div class="scorecard-recommendations">
+                    <h5>Recommended Study Topics</h5>
+                    <ul>
+                        ${recsList}
+                    </ul>
+                </div>
+            `;
+
+            chatBody.appendChild(card);
+
+            // Auto scroll to bottom to show evaluation
+            setTimeout(() => {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 100);
         }
 
         // Render full list of messages (used for history reviews)
