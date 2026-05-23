@@ -265,8 +265,8 @@
 
         .controls-row {
             display: grid;
-            grid-template-columns: 1fr 200px auto;
-            gap: 1rem;
+            grid-template-columns: 1fr 130px 170px auto;
+            gap: 0.75rem;
             align-items: flex-end;
         }
 
@@ -296,6 +296,7 @@
             transition: all 0.2s ease;
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
             width: 100%;
+            height: 38px;
         }
 
         input[type="text"]:focus {
@@ -306,9 +307,9 @@
         .mode-selector {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
+            gap: 0.35rem;
             background: #e2e8f0;
-            padding: 0.25rem;
+            padding: 0.2rem;
             border-radius: 10px;
             border: 1px solid rgba(0,0,0,0.02);
             height: 38px;
@@ -323,7 +324,7 @@
             height: 100%;
             cursor: pointer;
             border-radius: 7px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: #64748b;
             transition: all 0.2s;
@@ -339,6 +340,33 @@
             background: white;
             color: #0f172a;
             box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        select {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 0 0.5rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+            height: 38px;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        select:disabled {
+            background: #f1f5f9;
+            color: #64748b;
+            cursor: not-allowed;
         }
 
         .btn-start {
@@ -740,6 +768,9 @@
             .scorecard-sections {
                 grid-template-columns: 1fr;
             }
+            .controls-row {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -788,14 +819,21 @@
                             <label>Mode</label>
                             <div class="mode-selector">
                                 <label class="mode-option">
-                                    <input type="radio" name="execution-mode" value="local" checked>
+                                    <input type="radio" name="execution-mode" value="local" checked onclick="toggleMode('local')">
                                     <span>💻 Local</span>
                                 </label>
                                 <label class="mode-option">
-                                    <input type="radio" name="execution-mode" value="cloud">
+                                    <input type="radio" name="execution-mode" value="cloud" onclick="toggleMode('cloud')">
                                     <span>☁️ Cloud</span>
                                 </label>
                             </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="model-select">Model Choice</label>
+                            <select id="model-select">
+                                <!-- Populated dynamically -->
+                            </select>
                         </div>
 
                         <button id="btn-start" class="btn-start" onclick="startDiscussion()">
@@ -835,6 +873,36 @@
         const WS_URL = "ws://localhost:8000/ws/discuss";
 
         let wsConnection = null;
+
+        // Model configs
+        const LOCAL_MODELS = [
+            { value: "llama3", label: "Llama 3 (8B)" },
+            { value: "phi3", label: "Phi 3 (3.8B)" },
+            { value: "mistral", label: "Mistral (7B)" },
+            { value: "gemma2", label: "Gemma 2 (9B)" }
+        ];
+
+        const CLOUD_MODELS = [
+            { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+            { value: "meta-llama/llama-3-8b-instruct:free", label: "Llama 3 8B (Free)" },
+            { value: "mistralai/mistral-7b-instruct:free", label: "Mistral 7B (Free)" },
+            { value: "openchat/openchat-7b:free", label: "OpenChat 7B (Free)" },
+            { value: "microsoft/phi-3-medium-128k-instruct:free", label: "Phi 3 Medium (Free)" }
+        ];
+
+        // Populate model dropdown
+        function toggleMode(mode) {
+            const selectEl = document.getElementById("model-select");
+            selectEl.innerHTML = "";
+
+            const models = mode === "local" ? LOCAL_MODELS : CLOUD_MODELS;
+            models.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m.value;
+                opt.textContent = m.label;
+                selectEl.appendChild(opt);
+            });
+        }
 
         // Query server health status on load
         async function checkHealth() {
@@ -898,7 +966,7 @@
                     item.innerHTML = `
                         <div class="topic" title="${d.topic}">${d.topic}</div>
                         <div class="meta">
-                            <span>${d.mode === 'local' ? '💻 Local' : '☁️ Cloud'}</span>
+                            <span>${d.mode === 'local' ? '💻' : '☁️'} ${d.model.split('/').pop()}</span>
                             <span>${formattedDate}</span>
                         </div>
                     `;
@@ -912,12 +980,10 @@
 
         // Load and view a past debate
         async function selectDebate(id, topic, mode) {
-            // Cancel active WS if any
             if (wsConnection) {
                 wsConnection.close();
             }
 
-            // UI feedback for selection
             document.querySelectorAll(".history-item").forEach(item => item.classList.remove("active"));
             const activeItem = document.getElementById(`history-${id}`);
             if (activeItem) activeItem.classList.add("active");
@@ -929,6 +995,7 @@
                 r.disabled = true;
                 if (r.value === mode) r.checked = true;
             });
+            document.getElementById("model-select").disabled = true;
             document.getElementById("btn-start").disabled = true;
             document.getElementById("suggestions-area").style.opacity = "0.3";
             document.getElementById("suggestions-area").style.pointerEvents = "none";
@@ -942,12 +1009,17 @@
             `;
             
             document.getElementById("chat-header-title").textContent = "Archived Debate";
-            document.getElementById("active-mode-badge").textContent = `ID: #${id} | ${mode === "local" ? "💻 Local" : "☁️ Cloud"}`;
 
             try {
                 const res = await fetch(`${API_URL}/debates/${id}`);
                 if (!res.ok) throw new Error("Failed to fetch messages");
                 const data = await res.json();
+                
+                // Select and display model
+                toggleMode(mode);
+                document.getElementById("model-select").value = data.model;
+                document.getElementById("active-mode-badge").textContent = `ID: #${id} | ${mode === "local" ? "💻 Local" : "☁️ Cloud"} (${data.model})`;
+
                 renderConversation(data.messages);
                 if (data.evaluation) {
                     renderEvaluationCard(data.evaluation);
@@ -970,18 +1042,22 @@
 
             document.querySelectorAll(".history-item").forEach(item => item.classList.remove("active"));
             
-            // Re-enable input controls
             const topicInput = document.getElementById("topic-input");
             topicInput.value = "";
             topicInput.disabled = false;
 
             document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = false);
+            document.getElementById("model-select").disabled = false;
             document.getElementById("btn-start").disabled = false;
             document.getElementById("suggestions-area").style.opacity = "1";
             document.getElementById("suggestions-area").style.pointerEvents = "auto";
 
             document.getElementById("chat-header-title").textContent = "Live Conversation";
             document.getElementById("active-mode-badge").textContent = "";
+
+            // Restore active model dropdown
+            const activeMode = document.querySelector('input[name="execution-mode"]:checked').value;
+            toggleMode(activeMode);
 
             const chatBody = document.getElementById("chat-body");
             chatBody.innerHTML = `
@@ -1008,6 +1084,7 @@
             }
 
             const mode = document.querySelector('input[name="execution-mode"]:checked').value;
+            const model = document.getElementById("model-select").value;
             
             const btn = document.getElementById("btn-start");
             const spinner = document.getElementById("btn-spinner");
@@ -1018,6 +1095,7 @@
             btn.disabled = true;
             topicInput.disabled = true;
             document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = true);
+            document.getElementById("model-select").disabled = true;
             spinner.style.display = "block";
             btn.querySelector("span").textContent = "Connecting...";
             
@@ -1027,17 +1105,17 @@
                     <p style="margin-top: 0.5rem; font-weight: 500;">Starting WebSocket stream...</p>
                 </div>
             `;
-            modeBadge.textContent = mode === "local" ? "💻 Local Mode" : "☁️ Cloud Mode";
+            modeBadge.textContent = `${mode === "local" ? "💻 Local" : "☁️ Cloud"} (${model})`;
 
             // Open WebSocket Connection
             wsConnection = new WebSocket(WS_URL);
 
             wsConnection.onopen = () => {
                 btn.querySelector("span").textContent = "Debating...";
-                chatBody.innerHTML = ""; // Clear loader and start displaying bubbles
+                chatBody.innerHTML = ""; // Clear loader
                 
-                // Send parameters to start graph execution
-                wsConnection.send(JSON.stringify({ topic, mode }));
+                // Send parameters
+                wsConnection.send(JSON.stringify({ topic, mode, model }));
             };
 
             wsConnection.onmessage = (event) => {
@@ -1055,7 +1133,7 @@
                     renderEvaluationCard(data);
                 } else if (data.type === "complete") {
                     console.log("Debate complete!");
-                    loadHistory(); // Reload sidebar to show this new debate session
+                    loadHistory();
                 }
             };
 
@@ -1068,6 +1146,7 @@
                 btn.disabled = false;
                 topicInput.disabled = false;
                 document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = false);
+                document.getElementById("model-select").disabled = false;
                 spinner.style.display = "none";
                 btn.querySelector("span").textContent = "Start Discussion";
                 wsConnection = null;
@@ -1091,7 +1170,6 @@
         function appendMessageBubble(msg) {
             const chatBody = document.getElementById("chat-body");
             
-            // Remove connections logs if showing
             const connectingMsg = document.getElementById("ws-connecting-msg");
             if (connectingMsg) connectingMsg.remove();
 
@@ -1116,25 +1194,21 @@
             wrapper.appendChild(bubble);
             chatBody.appendChild(wrapper);
 
-            // Auto scroll to bottom
             chatBody.scrollTop = chatBody.scrollHeight;
         }
 
-        // Render evaluation scorecard card at the bottom of the discussion
+        // Render evaluation scorecard card
         function renderEvaluationCard(evalData) {
             const chatBody = document.getElementById("chat-body");
-            if (!evalData) return;
 
             const card = document.createElement("div");
             card.className = "scorecard-container";
 
-            // Determine score class/color
             const score = evalData.score !== undefined ? evalData.score : 0;
             let scoreClass = "score-mid";
             if (score >= 8) scoreClass = "score-high";
             else if (score <= 4) scoreClass = "score-low";
 
-            // Safely convert items to list of elements
             const getListItems = (items) => {
                 if (!items) return "<li>None specified</li>";
                 if (Array.isArray(items)) {
@@ -1185,13 +1259,12 @@
 
             chatBody.appendChild(card);
 
-            // Auto scroll to bottom to show evaluation
             setTimeout(() => {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }, 100);
         }
 
-        // Render full list of messages (used for history reviews)
+        // Render full list of messages
         function renderConversation(messages) {
             const chatBody = document.getElementById("chat-body");
             chatBody.innerHTML = "";
@@ -1225,7 +1298,6 @@
                 chatBody.appendChild(wrapper);
             });
 
-            // Scroll to bottom
             setTimeout(() => {
                 chatBody.scrollTop = chatBody.scrollHeight;
             }, 50);
@@ -1234,9 +1306,12 @@
         // Initial setup
         window.addEventListener("DOMContentLoaded", () => {
             checkHealth();
+            
+            // Set initial dropdown values (local mode is default checked)
+            toggleMode("local");
+            
             loadHistory();
             
-            // Poll health state every 10 seconds
             setInterval(checkHealth, 10000);
         });
     </script>

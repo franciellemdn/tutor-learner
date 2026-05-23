@@ -49,13 +49,18 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             topic TEXT NOT NULL,
             mode TEXT NOT NULL,
+            model TEXT,
             evaluation TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Database migration: add evaluation column if it doesn't exist
+    # Database migrations: add columns if they don't exist
     try:
         cursor.execute("ALTER TABLE debates ADD COLUMN evaluation TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        cursor.execute("ALTER TABLE debates ADD COLUMN model TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
         
@@ -77,12 +82,12 @@ def init_db():
 # Initialize DB on load
 init_db()
 
-def create_debate(topic: str, mode: str) -> int:
+def create_debate(topic: str, mode: str, model: str) -> int:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO debates (topic, mode) VALUES (?, ?)",
-        (topic, mode)
+        "INSERT INTO debates (topic, mode, model) VALUES (?, ?, ?)",
+        (topic, mode, model)
     )
     debate_id = cursor.lastrowid
     conn.commit()
@@ -113,7 +118,7 @@ def get_all_debates():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT id, topic, mode, created_at FROM debates ORDER BY created_at DESC")
+    cursor.execute("SELECT id, topic, mode, model, created_at FROM debates ORDER BY created_at DESC")
     rows = cursor.fetchall()
     debates = [dict(row) for row in rows]
     conn.close()
@@ -144,12 +149,13 @@ class ChatMessage(TypedDict):
 class DiscussionState(TypedDict):
     topic: str
     mode: Literal["local", "cloud"]
+    model: str  # The specific model chosen by the user
     messages: List[ChatMessage]
     turn_count: int
     evaluation: dict
 
 # Helper to get the correct LLM model client
-def get_llm(mode: str, role: str):
+def get_llm(mode: str, role: str, model_name: str):
     if mode == "cloud":
         if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith("your_"):
             raise HTTPException(
@@ -161,30 +167,33 @@ def get_llm(mode: str, role: str):
         os.environ["OPENAI_API_KEY"] = OPENROUTER_API_KEY
         os.environ["OPENAI_BASE_URL"] = OPENROUTER_API_BASE
         
+        selected_model = model_name or OPENROUTER_MODEL
+        
         return ChatOpenAI(
             api_key=OPENROUTER_API_KEY,
             openai_api_key=OPENROUTER_API_KEY,
             base_url=OPENROUTER_API_BASE,
-            model=OPENROUTER_MODEL,
+            model=selected_model,
             temperature=0.7,
             default_headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "HTTP-Referer": "http://localhost:8000",
                 "X-Title": "Tutor Learner Learning Project"
             }
-        ), OPENROUTER_MODEL
+        ), selected_model
     else:
         # Local Ollama configuration
+        selected_model = model_name or OLLAMA_MODEL
         try:
             return ChatOllama(
-                model=OLLAMA_MODEL,
+                model=selected_model,
                 temperature=0.7,
                 base_url="http://localhost:11434"
-            ), OLLAMA_MODEL
+            ), selected_model
         except Exception as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to connect to local Ollama server. Ensure Ollama is running and '{OLLAMA_MODEL}' model is pulled. Error: {str(e)}"
+                detail=f"Failed to connect to local Ollama server. Ensure Ollama is running and '{selected_model}' model is pulled. Error: {str(e)}"
             )
 
 # Node Implementations
@@ -192,8 +201,9 @@ def tutor_node(state: DiscussionState) -> DiscussionState:
     messages = state["messages"]
     topic = state["topic"]
     mode = state["mode"]
+    model_choice = state.get("model", "")
     
-    llm, model_name = get_llm(mode, "tutor")
+    llm, model_name = get_llm(mode, "tutor", model_choice)
     
     history_str = ""
     for msg in messages:
@@ -239,8 +249,9 @@ def learner_node(state: DiscussionState) -> DiscussionState:
     messages = state["messages"]
     topic = state["topic"]
     mode = state["mode"]
+    model_choice = state.get("model", "")
     
-    llm, model_name = get_llm(mode, "learner")
+    llm, model_name = get_llm(mode, "learner", model_choice)
     
     history_str = ""
     for msg in messages:
@@ -285,8 +296,9 @@ def evaluator_node(state: DiscussionState) -> DiscussionState:
     messages = state["messages"]
     topic = state["topic"]
     mode = state["mode"]
+    model_choice = state.get("model", "")
     
-    llm, model_name = get_llm(mode, "evaluator")
+    llm, model_name = get_llm(mode, "evaluator", model_choice)
     
     history_str = ""
     for msg in messages:
@@ -400,22 +412,25 @@ async def get_debate(debate_id: int):
     try:
         messages = get_debate_messages(debate_id)
         
-        # Fetch the evaluation metadata
+        # Fetch the metadata
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT evaluation FROM debates WHERE id = ?", (debate_id,))
+        cursor.execute("SELECT model, evaluation FROM debates WHERE id = ?", (debate_id,))
         row = cursor.fetchone()
         conn.close()
         
         evaluation = None
-        if row and row["evaluation"]:
-            try:
-                evaluation = json.loads(row["evaluation"])
-            except Exception:
-                pass
+        model = ""
+        if row:
+            model = row["model"] or ""
+            if row["evaluation"]:
+                try:
+                    evaluation = json.loads(row["evaluation"])
+                except Exception:
+                    pass
                 
-        return {"messages": messages, "evaluation": evaluation}
+        return {"messages": messages, "model": model, "evaluation": evaluation}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
@@ -428,6 +443,7 @@ async def websocket_discuss(websocket: WebSocket):
         payload = json.loads(data)
         topic = payload.get("topic", "").strip()
         mode = payload.get("mode", "local").strip()
+        model_choice = payload.get("model", "").strip()
 
         if not topic:
             await websocket.send_json({"error": "Topic is required"})
@@ -435,11 +451,12 @@ async def websocket_discuss(websocket: WebSocket):
             return
 
         # 1. Create a debate session record
-        debate_id = create_debate(topic, mode)
+        debate_id = create_debate(topic, mode, model_choice)
 
         initial_state: DiscussionState = {
             "topic": topic,
             "mode": mode,
+            "model": model_choice,
             "messages": [],
             "turn_count": 0,
             "evaluation": {}
