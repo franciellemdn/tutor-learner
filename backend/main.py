@@ -1,6 +1,10 @@
 import os
+import sqlite3
+import json
 from typing import TypedDict, List, Literal
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -9,8 +13,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_community.chat_models import ChatOllama
 from langgraph.graph import StateGraph, END
-
-from pathlib import Path
 
 # Load environment variables relative to this file with override=True
 env_path = Path(__file__).parent / ".env"
@@ -33,7 +35,90 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 1. State Definition
+# ==========================================
+# DATABASE SETUP (SQLite)
+# ==========================================
+DB_PATH = os.path.join(os.path.dirname(__file__), "debates.db")
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # Create debates table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS debates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            topic TEXT NOT NULL,
+            mode TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    # Create messages table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            debate_id INTEGER,
+            sender TEXT NOT NULL,
+            content TEXT NOT NULL,
+            model_used TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(debate_id) REFERENCES debates(id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Initialize DB on load
+init_db()
+
+def create_debate(topic: str, mode: str) -> int:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO debates (topic, mode) VALUES (?, ?)",
+        (topic, mode)
+    )
+    debate_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return debate_id
+
+def save_message(debate_id: int, sender: str, content: str, model_used: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO messages (debate_id, sender, content, model_used) VALUES (?, ?, ?, ?)",
+        (debate_id, sender, content, model_used)
+    )
+    conn.commit()
+    conn.close()
+
+def get_all_debates():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, topic, mode, created_at FROM debates ORDER BY created_at DESC")
+    rows = cursor.fetchall()
+    debates = [dict(row) for row in rows]
+    conn.close()
+    return debates
+
+def get_debate_messages(debate_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT sender, content, model_used, created_at FROM messages WHERE debate_id = ? ORDER BY id ASC",
+        (debate_id,)
+    )
+    rows = cursor.fetchall()
+    messages = [dict(row) for row in rows]
+    conn.close()
+    return messages
+
+# ==========================================
+# LANGGRAPH GRAPH DEFINITION
+# ==========================================
+
 class ChatMessage(TypedDict):
     sender: Literal["tutor", "learner"]
     content: str
@@ -44,11 +129,6 @@ class DiscussionState(TypedDict):
     mode: Literal["local", "cloud"]
     messages: List[ChatMessage]
     turn_count: int
-
-# Pydantic input schema for FastAPI endpoint
-class DiscussRequest(BaseModel):
-    topic: str
-    mode: Literal["local", "cloud"]
 
 # Helper to get the correct LLM model client
 def get_llm(mode: str, role: str):
@@ -89,22 +169,19 @@ def get_llm(mode: str, role: str):
                 detail=f"Failed to connect to local Ollama server. Ensure Ollama is running and '{OLLAMA_MODEL}' model is pulled. Error: {str(e)}"
             )
 
-# 2. Node Implementations
+# Node Implementations
 def tutor_node(state: DiscussionState) -> DiscussionState:
     messages = state["messages"]
     topic = state["topic"]
     mode = state["mode"]
     
-    # Get LLM based on user selection
     llm, model_name = get_llm(mode, "tutor")
     
-    # Construct conversation history for the prompt
     history_str = ""
     for msg in messages:
         sender_name = "Tutor" if msg["sender"] == "tutor" else "Learner"
         history_str += f"{sender_name}: {msg['content']}\n"
     
-    # Tutor System Prompt
     system_prompt = (
         f"You are a helpful, patient, and knowledgeable AI Tutor teaching a student about '{topic}'.\n"
         "Your goal is to explain concepts clearly, keep explanations brief (under 3 sentences), "
@@ -118,7 +195,6 @@ def tutor_node(state: DiscussionState) -> DiscussionState:
         "what they already know about it or what specific questions they have."
     )
     
-    # Call Model
     try:
         response = llm.invoke([
             SystemMessage(content=system_prompt),
@@ -146,16 +222,13 @@ def learner_node(state: DiscussionState) -> DiscussionState:
     topic = state["topic"]
     mode = state["mode"]
     
-    # Get LLM based on user selection
     llm, model_name = get_llm(mode, "learner")
     
-    # Construct conversation history for the prompt
     history_str = ""
     for msg in messages:
         sender_name = "Tutor" if msg["sender"] == "tutor" else "Learner"
         history_str += f"{sender_name}: {msg['content']}\n"
         
-    # Learner System Prompt
     system_prompt = (
         f"You are a curious and polite AI Learner who is actively learning about '{topic}' from a Tutor.\n"
         "Your goal is to ask insightful questions, try your best to answer the tutor's quizzes/questions, "
@@ -168,7 +241,6 @@ def learner_node(state: DiscussionState) -> DiscussionState:
         "Generate the next response as the Learner."
     )
     
-    # Call Model
     try:
         response = llm.invoke([
             SystemMessage(content=system_prompt),
@@ -191,30 +263,25 @@ def learner_node(state: DiscussionState) -> DiscussionState:
         "turn_count": state["turn_count"] + 1
     }
 
-# 3. Router logic
+# Router logic
 def router_condition(state: DiscussionState) -> str:
-    # Stop discussion after 6 total turns (3 rounds of tutor-learner interaction)
     if state["turn_count"] >= 6:
         return "end"
     
-    # Otherwise, alternate turns based on who spoke last
     last_sender = state["messages"][-1]["sender"]
     if last_sender == "tutor":
         return "learner"
     else:
         return "tutor"
 
-# 4. Compile LangGraph Workflow
+# Compile LangGraph Workflow
 workflow = StateGraph(DiscussionState)
 
-# Add nodes to graph
 workflow.add_node("tutor", tutor_node)
 workflow.add_node("learner", learner_node)
 
-# Set the starting node
 workflow.set_entry_point("tutor")
 
-# Define conditional edges to loop/alternate
 workflow.add_conditional_edges(
     "tutor",
     router_condition,
@@ -234,38 +301,95 @@ workflow.add_conditional_edges(
 
 discussion_graph = workflow.compile()
 
-# 5. API Endpoints
-@app.post("/discuss")
-async def start_debate(request: DiscussRequest):
-    # Initialize state
-    initial_state: DiscussionState = {
-        "topic": request.topic,
-        "mode": request.mode,
-        "messages": [],
-        "turn_count": 0
-    }
-    
+# ==========================================
+# API ENDPOINTS & WEBSOCKETS
+# ==========================================
+
+@app.get("/debates")
+async def list_debates():
     try:
-        # Run graph synchronously
-        final_state = discussion_graph.invoke(initial_state)
-        return {
-            "topic": final_state["topic"],
-            "mode": final_state["mode"],
-            "messages": final_state["messages"],
-            "turn_count": final_state["turn_count"]
-        }
+        return get_all_debates()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Graph execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.get("/debates/{debate_id}")
+async def get_debate(debate_id: int):
+    try:
+        messages = get_debate_messages(debate_id)
+        return {"messages": messages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+@app.websocket("/ws/discuss")
+async def websocket_discuss(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        # Receive parameters
+        data = await websocket.receive_text()
+        payload = json.loads(data)
+        topic = payload.get("topic", "").strip()
+        mode = payload.get("mode", "local").strip()
+
+        if not topic:
+            await websocket.send_json({"error": "Topic is required"})
+            await websocket.close()
+            return
+
+        # 1. Create a debate session record
+        debate_id = create_debate(topic, mode)
+
+        initial_state: DiscussionState = {
+            "topic": topic,
+            "mode": mode,
+            "messages": [],
+            "turn_count": 0
+        }
+
+        # 2. Execute graph step-by-step and stream results in real-time
+        async for chunk in discussion_graph.astream(initial_state):
+            # chunk holds updates from the executed node (e.g., {"tutor": {...}})
+            for node_name, state_update in chunk.items():
+                if "messages" in state_update and state_update["messages"]:
+                    last_msg = state_update["messages"][-1]
+                    
+                    # Save each message as it generates
+                    save_message(
+                        debate_id=debate_id,
+                        sender=last_msg["sender"],
+                        content=last_msg["content"],
+                        model_used=last_msg["model_used"]
+                    )
+                    
+                    # Send message data immediately to client
+                    await websocket.send_json({
+                        "type": "message",
+                        "sender": last_msg["sender"],
+                        "content": last_msg["content"],
+                        "model_used": last_msg["model_used"]
+                    })
+
+        # Complete notification
+        await websocket.send_json({"type": "complete", "debate_id": debate_id})
+
+    except WebSocketDisconnect:
+        print("WebSocket client disconnected.")
+    except Exception as e:
+        try:
+            await websocket.send_json({"error": f"Graph execution failed: {str(e)}"})
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 @app.get("/health")
 async def health_check():
-    # Helper to check if Ollama is accessible and which models are pulled,
-    # and if env has OpenRouter API Key.
     ollama_ok = False
     openrouter_configured = bool(OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("your_"))
     
     import urllib.request
-    import json
     try:
         with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=2) as response:
             if response.status == 200:

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Tutor & Learner Debate</title>
+    <title>AI Tutor & Learner Debate Dashboard</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +12,7 @@
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
-            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-bg: rgba(255, 255, 255, 0.85);
             --glass-border: rgba(15, 23, 42, 0.08);
             --glass-highlight: rgba(255, 255, 255, 0.6);
             
@@ -28,7 +28,7 @@
             --text-muted: #475569;
             --success-color: #059669;
             --error-color: #dc2626;
-            --accent-glow: 0 10px 40px -10px rgba(15, 23, 42, 0.12);
+            --accent-glow: 0 10px 40px -10px rgba(15, 23, 42, 0.08);
         }
 
         * {
@@ -45,23 +45,23 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 2rem 1rem;
+            padding: 1.5rem;
             overflow-x: hidden;
         }
 
         .container {
             width: 100%;
-            max-width: 950px;
+            max-width: 1100px;
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             box-shadow: var(--accent-glow);
-            padding: 2.5rem;
+            padding: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 2rem;
+            gap: 1.5rem;
             position: relative;
         }
 
@@ -82,47 +82,46 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--glass-border);
-            padding-bottom: 1.5rem;
+            padding-bottom: 1rem;
         }
 
         .title-area h1 {
             font-family: 'Outfit', sans-serif;
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: 700;
             background: linear-gradient(to right, #1d4ed8, #a21caf);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.15rem;
         }
 
         .title-area p {
             color: var(--text-muted);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 500;
         }
 
         .status-bar {
             display: flex;
-            gap: 1rem;
-            font-size: 0.8rem;
+            gap: 0.75rem;
+            font-size: 0.75rem;
         }
 
         .status-item {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            background: rgba(255, 255, 255, 0.6);
-            padding: 0.45rem 0.85rem;
-            border-radius: 12px;
+            gap: 0.4rem;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 0.35rem 0.7rem;
+            border-radius: 10px;
             border: 1px solid var(--glass-border);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
             color: #334155;
             font-weight: 500;
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             display: inline-block;
         }
@@ -134,36 +133,150 @@
 
         .status-dot.inactive {
             background-color: #94a3b8;
-            box-shadow: none;
         }
 
+        /* 2-Column Main Layout */
         .main-grid {
             display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 2rem;
-            min-height: 480px;
+            grid-template-columns: 260px 1fr;
+            gap: 1.5rem;
+            min-height: 520px;
         }
 
-        /* Settings Panel */
-        .settings-panel {
+        /* LEFT COLUMN: Sidebar History */
+        .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.015);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem;
+            max-height: 550px;
+        }
+
+        .sidebar-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .btn-new-debate {
+            background: white;
+            border: 1px dashed #cbd5e1;
+            color: #1e293b;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .btn-new-debate:hover {
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            background: #f8fafc;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 0.25rem;
+        }
+
+        .history-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.7rem 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            border-left: 3px solid transparent;
+        }
+
+        .history-item:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .history-item.active {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            border-left-color: #1d4ed8;
+        }
+
+        .history-item .topic {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-item .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        .history-empty {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 2rem 0.5rem;
+            font-style: italic;
+        }
+
+        /* RIGHT COLUMN: Controls + Chat Window */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Controls Panel (Top) */
+        .controls-panel {
             background: rgba(255, 255, 255, 0.4);
             border: 1px solid var(--glass-border);
             border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: 1fr 200px auto;
+            gap: 1rem;
+            align-items: flex-end;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.4rem;
         }
 
         label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: #475569;
             text-transform: uppercase;
@@ -173,29 +286,32 @@
         input[type="text"] {
             background: white;
             border: 1px solid #cbd5e1;
-            border-radius: 12px;
-            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            padding: 0.7rem 0.9rem;
             color: var(--text-main);
             font-family: inherit;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             outline: none;
             transition: all 0.2s ease;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.01);
+            width: 100%;
         }
 
         input[type="text"]:focus {
             border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
         }
 
         .mode-selector {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            background: rgba(241, 245, 249, 0.8);
-            padding: 0.35rem;
-            border-radius: 12px;
-            border: 1px solid var(--glass-border);
+            gap: 0.5rem;
+            background: #e2e8f0;
+            padding: 0.25rem;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.02);
+            height: 38px;
+            align-items: center;
         }
 
         .mode-option {
@@ -203,14 +319,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 0.6rem 0.5rem;
+            height: 100%;
             cursor: pointer;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            border-radius: 7px;
+            font-size: 0.8rem;
             font-weight: 600;
             color: #64748b;
             transition: all 0.2s;
-            text-align: center;
         }
 
         .mode-option input {
@@ -222,35 +337,31 @@
         .mode-option:has(input:checked) {
             background: white;
             color: #0f172a;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-            border: 1px solid rgba(0,0,0,0.04);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
 
         .btn-start {
             background: linear-gradient(135deg, #1d4ed8 0%, #7e22ce 100%);
             border: none;
             color: white;
-            padding: 0.9rem 1.5rem;
-            border-radius: 12px;
+            height: 38px;
+            padding: 0 1.25rem;
+            border-radius: 10px;
             font-weight: 600;
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 0.9rem;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.18);
+            gap: 0.4rem;
+            box-shadow: 0 2px 8px rgba(29, 78, 216, 0.15);
         }
 
         .btn-start:hover {
-            transform: translateY(-1.5px);
-            box-shadow: 0 6px 16px rgba(29, 78, 216, 0.28);
-        }
-
-        .btn-start:active {
-            transform: translateY(0.5px);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
         }
 
         .btn-start:disabled {
@@ -264,19 +375,17 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.4rem;
-            margin-top: 0.5rem;
         }
 
         .suggestion-tag {
-            font-size: 0.75rem;
-            background: rgba(255, 255, 255, 0.8);
+            font-size: 0.7rem;
+            background: rgba(255, 255, 255, 0.7);
             border: 1px solid #e2e8f0;
-            padding: 0.3rem 0.6rem;
-            border-radius: 8px;
+            padding: 0.25rem 0.5rem;
+            border-radius: 7px;
             cursor: pointer;
             color: #475569;
             transition: all 0.2s;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.01);
         }
 
         .suggestion-tag:hover {
@@ -285,23 +394,24 @@
             border-color: #bfdbfe;
         }
 
-        /* Discussion Display Area */
+        /* Discussion Display Area (Bottom) */
         .display-area {
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
             border: 1px solid var(--glass-border);
             border-radius: 16px;
             background: rgba(255, 255, 255, 0.35);
             overflow: hidden;
-            position: relative;
             box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+            max-height: 400px;
         }
 
         .chat-header {
             background: rgba(255, 255, 255, 0.75);
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1.25rem;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             border-bottom: 1px solid var(--glass-border);
             display: flex;
             align-items: center;
@@ -311,12 +421,11 @@
 
         .chat-body {
             flex-grow: 1;
-            padding: 1.5rem;
+            padding: 1.25rem;
             overflow-y: auto;
-            max-height: 400px;
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
+            gap: 1rem;
             scroll-behavior: smooth;
         }
 
@@ -328,18 +437,19 @@
             height: 100%;
             text-align: center;
             color: #64748b;
-            gap: 0.75rem;
+            gap: 0.5rem;
             padding: 3rem 1rem;
         }
 
         .placeholder-icon {
-            font-size: 3rem;
+            font-size: 2.5rem;
             opacity: 0.6;
         }
 
         .placeholder-message h3 {
             font-weight: 600;
             color: #334155;
+            font-size: 1.1rem;
         }
 
         /* Speech Bubbles */
@@ -360,11 +470,11 @@
         }
 
         .bubble-header {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 700;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.25rem;
             display: flex;
-            gap: 0.5rem;
+            gap: 0.4rem;
             align-items: center;
             color: #475569;
         }
@@ -372,20 +482,19 @@
         .bubble-header span.badge {
             background: #e2e8f0;
             color: #334155;
-            padding: 0.15rem 0.4rem;
-            border-radius: 6px;
-            font-size: 0.65rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 5px;
+            font-size: 0.6rem;
             font-family: monospace;
             font-weight: 500;
         }
 
         .bubble {
-            padding: 1rem 1.25rem;
-            border-radius: 18px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            position: relative;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            padding: 0.8rem 1.1rem;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            line-height: 1.45;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.01);
         }
 
         .tutor .bubble {
@@ -406,7 +515,7 @@
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(12px);
+                transform: translateY(8px);
             }
             to {
                 opacity: 1;
@@ -416,9 +525,9 @@
 
         /* Spinner */
         .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top-color: white;
             animation: spin 1s ease-in-out infinite;
@@ -426,7 +535,7 @@
         }
 
         .dark-spinner {
-            border: 3px solid rgba(15, 23, 42, 0.1);
+            border: 2px solid rgba(15, 23, 42, 0.1);
             border-top-color: #3b82f6;
         }
 
@@ -434,13 +543,31 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
         /* Responsive */
-        @media (max-width: 768px) {
+        @media (max-width: 820px) {
             .main-grid {
                 grid-template-columns: 1fr;
             }
+            .sidebar {
+                max-height: 200px;
+            }
             .container {
-                padding: 1.5rem;
+                padding: 1.25rem;
             }
         }
     </style>
@@ -466,12 +593,47 @@
         </header>
 
         <div class="main-grid">
-            <!-- Left Side: Inputs -->
-            <div class="settings-panel">
-                <div class="form-group">
-                    <label for="topic-input">Discussion Topic</label>
-                    <input type="text" id="topic-input" placeholder="e.g. Quantum Computing, Photosynthesis..." autocomplete="off">
-                    <div class="suggestions">
+            <!-- Left Side: Sidebar History -->
+            <div class="sidebar">
+                <div class="sidebar-header">Debate History</div>
+                <button class="btn-new-debate" onclick="newDebate()">+ New Debate</button>
+                <div class="history-list" id="history-list">
+                    <!-- Loaded dynamically -->
+                    <div class="history-empty">Loading history...</div>
+                </div>
+            </div>
+
+            <!-- Right Side: Controls and Visualizer -->
+            <div class="workspace">
+                <!-- Controls Panel -->
+                <div class="controls-panel" id="controls-panel">
+                    <div class="controls-row">
+                        <div class="form-group">
+                            <label for="topic-input">Discussion Topic</label>
+                            <input type="text" id="topic-input" placeholder="e.g. Quantum Computing, Photosynthesis..." autocomplete="off">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Mode</label>
+                            <div class="mode-selector">
+                                <label class="mode-option">
+                                    <input type="radio" name="execution-mode" value="local" checked>
+                                    <span>💻 Local</span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="execution-mode" value="cloud">
+                                    <span>☁️ Cloud</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button id="btn-start" class="btn-start" onclick="startDiscussion()">
+                            <span>Start Discussion</span>
+                            <div id="btn-spinner" class="spinner"></div>
+                        </button>
+                    </div>
+
+                    <div class="suggestions" id="suggestions-area">
                         <span class="suggestion-tag" onclick="selectSuggestion('Photosynthesis')">Photosynthesis</span>
                         <span class="suggestion-tag" onclick="selectSuggestion('Quantum Computing')">Quantum Computing</span>
                         <span class="suggestion-tag" onclick="selectSuggestion('How LLMs Learn')">How LLMs Learn</span>
@@ -479,37 +641,18 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Execution Mode</label>
-                    <div class="mode-selector">
-                        <label class="mode-option">
-                            <input type="radio" name="execution-mode" value="local" checked>
-                            <span>💻 Local</span>
-                        </label>
-                        <label class="mode-option">
-                            <input type="radio" name="execution-mode" value="cloud">
-                            <span>☁️ Cloud</span>
-                        </label>
+                <!-- Discussion Display Area -->
+                <div class="display-area">
+                    <div class="chat-header">
+                        <span id="chat-header-title">Live Conversation</span>
+                        <span id="active-mode-badge" style="font-size: 0.75rem; font-weight: 600; color: #475569;"></span>
                     </div>
-                </div>
-
-                <button id="btn-start" class="btn-start" onclick="startDiscussion()">
-                    <span>Start Discussion</span>
-                    <div id="btn-spinner" class="spinner"></div>
-                </button>
-            </div>
-
-            <!-- Right Side: Discussion Visualizer -->
-            <div class="display-area">
-                <div class="chat-header">
-                    <span>Live Conversation</span>
-                    <span id="active-mode-badge" style="font-size: 0.8rem; font-weight: 600; color: #475569;"></span>
-                </div>
-                <div class="chat-body" id="chat-body">
-                    <div class="placeholder-message" id="placeholder">
-                        <div class="placeholder-icon">🎓</div>
-                        <h3>No Topic Active</h3>
-                        <p>Fill out the settings on the left and start the discussion to see the Tutor and Learner agents interact autonomously!</p>
+                    <div class="chat-body" id="chat-body">
+                        <div class="placeholder-message" id="placeholder">
+                            <div class="placeholder-icon">🎓</div>
+                            <h3>No Topic Active</h3>
+                            <p>Enter a topic and start the discussion, or select a past debate from the sidebar to review.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -518,6 +661,9 @@
 
     <script>
         const API_URL = "http://localhost:8000";
+        const WS_URL = "ws://localhost:8000/ws/discuss";
+
+        let wsConnection = null;
 
         // Query server health status on load
         async function checkHealth() {
@@ -553,13 +699,133 @@
             }
         }
 
+        // Load history list from DB
+        async function loadHistory() {
+            const listEl = document.getElementById("history-list");
+            try {
+                const res = await fetch(`${API_URL}/debates`);
+                if (!res.ok) throw new Error("Failed to load debates");
+                
+                const debates = await res.json();
+                listEl.innerHTML = "";
+                
+                if (debates.length === 0) {
+                    listEl.innerHTML = `<div class="history-empty">No debates saved.</div>`;
+                    return;
+                }
+
+                debates.forEach(d => {
+                    const item = document.createElement("div");
+                    item.className = "history-item";
+                    item.id = `history-${d.id}`;
+                    item.onclick = () => selectDebate(d.id, d.topic, d.mode);
+
+                    // Formate Date
+                    const dateObj = new Date(d.created_at);
+                    const formattedDate = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+                    item.innerHTML = `
+                        <div class="topic" title="${d.topic}">${d.topic}</div>
+                        <div class="meta">
+                            <span>${d.mode === 'local' ? '💻 Local' : '☁️ Cloud'}</span>
+                            <span>${formattedDate}</span>
+                        </div>
+                    `;
+                    listEl.appendChild(item);
+                });
+            } catch (err) {
+                console.error(err);
+                listEl.innerHTML = `<div class="history-empty" style="color: var(--error-color)">Error loading history.</div>`;
+            }
+        }
+
+        // Load and view a past debate
+        async function selectDebate(id, topic, mode) {
+            // Cancel active WS if any
+            if (wsConnection) {
+                wsConnection.close();
+            }
+
+            // UI feedback for selection
+            document.querySelectorAll(".history-item").forEach(item => item.classList.remove("active"));
+            const activeItem = document.getElementById(`history-${id}`);
+            if (activeItem) activeItem.classList.add("active");
+
+            // Reset controls to passive state
+            document.getElementById("topic-input").value = topic;
+            document.getElementById("topic-input").disabled = true;
+            document.querySelectorAll('input[name="execution-mode"]').forEach(r => {
+                r.disabled = true;
+                if (r.value === mode) r.checked = true;
+            });
+            document.getElementById("btn-start").disabled = true;
+            document.getElementById("suggestions-area").style.opacity = "0.3";
+            document.getElementById("suggestions-area").style.pointerEvents = "none";
+
+            const chatBody = document.getElementById("chat-body");
+            chatBody.innerHTML = `
+                <div class="placeholder-message">
+                    <div class="spinner dark-spinner" style="display: block; width: 24px; height: 24px; border-width: 3px;"></div>
+                    <p style="margin-top: 0.5rem;">Loading debate from database...</p>
+                </div>
+            `;
+            
+            document.getElementById("chat-header-title").textContent = "Archived Debate";
+            document.getElementById("active-mode-badge").textContent = `ID: #${id} | ${mode === "local" ? "💻 Local" : "☁️ Cloud"}`;
+
+            try {
+                const res = await fetch(`${API_URL}/debates/${id}`);
+                if (!res.ok) throw new Error("Failed to fetch messages");
+                const data = await res.json();
+                renderConversation(data.messages);
+            } catch (err) {
+                chatBody.innerHTML = `
+                    <div class="placeholder-message" style="color: var(--error-color)">
+                        <h3>Error Loading Messages</h3>
+                        <p>${err.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Reset control panel for a new debate
+        function newDebate() {
+            if (wsConnection) {
+                wsConnection.close();
+            }
+
+            document.querySelectorAll(".history-item").forEach(item => item.classList.remove("active"));
+            
+            // Re-enable input controls
+            const topicInput = document.getElementById("topic-input");
+            topicInput.value = "";
+            topicInput.disabled = false;
+
+            document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = false);
+            document.getElementById("btn-start").disabled = false;
+            document.getElementById("suggestions-area").style.opacity = "1";
+            document.getElementById("suggestions-area").style.pointerEvents = "auto";
+
+            document.getElementById("chat-header-title").textContent = "Live Conversation";
+            document.getElementById("active-mode-badge").textContent = "";
+
+            const chatBody = document.getElementById("chat-body");
+            chatBody.innerHTML = `
+                <div class="placeholder-message" id="placeholder">
+                    <div class="placeholder-icon">🎓</div>
+                    <h3>No Topic Active</h3>
+                    <p>Enter a topic and start the discussion, or select a past debate from the sidebar to review.</p>
+                </div>
+            `;
+        }
+
         // Suggestions filler
         function selectSuggestion(text) {
             document.getElementById("topic-input").value = text;
         }
 
-        // Execute debate
-        async function startDiscussion() {
+        // Start discussion over WebSockets
+        function startDiscussion() {
             const topicInput = document.getElementById("topic-input");
             const topic = topicInput.value.trim();
             if (!topic) {
@@ -572,60 +838,119 @@
             const btn = document.getElementById("btn-start");
             const spinner = document.getElementById("btn-spinner");
             const chatBody = document.getElementById("chat-body");
-            const placeholder = document.getElementById("placeholder");
             const modeBadge = document.getElementById("active-mode-badge");
 
             // UI adjustments
             btn.disabled = true;
+            topicInput.disabled = true;
+            document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = true);
             spinner.style.display = "block";
-            btn.querySelector("span").textContent = "Debating...";
-            if (placeholder) placeholder.style.display = "none";
+            btn.querySelector("span").textContent = "Connecting...";
+            
             chatBody.innerHTML = `
-                <div class="placeholder-message" style="gap: 0.5rem;">
-                    <div class="spinner dark-spinner" style="display: block; width: 32px; height: 32px; border-width: 4px;"></div>
-                    <p style="margin-top: 1rem; font-weight: 500; color: #334155;">Orchestrating agents via LangGraph...</p>
-                    <p style="font-size: 0.8rem; opacity: 0.7; color: #64748b;">(Running ${mode === 'local' ? 'Local Ollama models' : 'Cloud OpenRouter models'})</p>
+                <div class="placeholder-message" id="ws-connecting-msg" style="gap: 0.5rem;">
+                    <div class="spinner dark-spinner" style="display: block; width: 24px; height: 24px; border-width: 3px;"></div>
+                    <p style="margin-top: 0.5rem; font-weight: 500;">Starting WebSocket stream...</p>
                 </div>
             `;
             modeBadge.textContent = mode === "local" ? "💻 Local Mode" : "☁️ Cloud Mode";
 
-            try {
-                const response = await fetch(`${API_URL}/discuss`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ topic, mode })
-                });
+            // Open WebSocket Connection
+            wsConnection = new WebSocket(WS_URL);
 
-                if (!response.ok) {
-                    const errorDetail = await response.json();
-                    throw new Error(errorDetail.detail || "Server error occurred");
+            wsConnection.onopen = () => {
+                btn.querySelector("span").textContent = "Debating...";
+                chatBody.innerHTML = ""; // Clear loader and start displaying bubbles
+                
+                // Send parameters to start graph execution
+                wsConnection.send(JSON.stringify({ topic, mode }));
+            };
+
+            wsConnection.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.error) {
+                    renderErrorMessage(data.error);
+                    wsConnection.close();
+                    return;
                 }
 
-                const data = await response.json();
-                renderConversation(data.messages);
-            } catch (error) {
-                chatBody.innerHTML = `
-                    <div class="placeholder-message" style="color: var(--error-color);">
-                        <div style="font-size: 3rem;">⚠️</div>
-                        <h3 style="color: var(--error-color)">Execution Failed</h3>
-                        <p style="color: #64748b; max-width: 400px; margin: 0.5rem auto;">${error.message}</p>
-                        <button class="btn-start" style="padding: 0.5rem 1rem; font-size: 0.85rem; margin-top: 1rem; box-shadow: none;" onclick="checkHealth(); startDiscussion();">Retry</button>
-                    </div>
-                `;
-            } finally {
+                if (data.type === "message") {
+                    appendMessageBubble(data);
+                } else if (data.type === "complete") {
+                    console.log("Debate complete!");
+                    loadHistory(); // Reload sidebar to show this new debate session
+                }
+            };
+
+            wsConnection.onerror = (error) => {
+                console.error("WS error: ", error);
+                renderErrorMessage("Connection failed or server returned an error.");
+            };
+
+            wsConnection.onclose = () => {
                 btn.disabled = false;
+                topicInput.disabled = false;
+                document.querySelectorAll('input[name="execution-mode"]').forEach(r => r.disabled = false);
                 spinner.style.display = "none";
                 btn.querySelector("span").textContent = "Start Discussion";
-            }
+                wsConnection = null;
+            };
         }
 
-        // Render response list
+        // Render error message
+        function renderErrorMessage(msg) {
+            const chatBody = document.getElementById("chat-body");
+            chatBody.innerHTML = `
+                <div class="placeholder-message" style="color: var(--error-color);">
+                    <div style="font-size: 2.5rem;">⚠️</div>
+                    <h3 style="color: var(--error-color)">Execution Failed</h3>
+                    <p style="color: #64748b; max-width: 400px; margin: 0.5rem auto;">${msg}</p>
+                    <button class="btn-start" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-top: 0.5rem; box-shadow: none;" onclick="newDebate()">Reset</button>
+                </div>
+            `;
+        }
+
+        // Append a single bubble in real-time
+        function appendMessageBubble(msg) {
+            const chatBody = document.getElementById("chat-body");
+            
+            // Remove connections logs if showing
+            const connectingMsg = document.getElementById("ws-connecting-msg");
+            if (connectingMsg) connectingMsg.remove();
+
+            const wrapper = document.createElement("div");
+            const isTutor = msg.sender === "tutor";
+            wrapper.className = `bubble-wrapper ${isTutor ? 'tutor' : 'learner'}`;
+
+            const header = document.createElement("div");
+            header.className = "bubble-header";
+            
+            const icon = isTutor ? "👨‍🏫 Tutor" : "🧑‍💻 Learner";
+            header.innerHTML = `
+                <strong>${icon}</strong>
+                <span class="badge">${msg.model_used}</span>
+            `;
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+            bubble.textContent = msg.content;
+
+            wrapper.appendChild(header);
+            wrapper.appendChild(bubble);
+            chatBody.appendChild(wrapper);
+
+            // Auto scroll to bottom
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // Render full list of messages (used for history reviews)
         function renderConversation(messages) {
             const chatBody = document.getElementById("chat-body");
             chatBody.innerHTML = "";
 
             if (!messages || messages.length === 0) {
-                chatBody.innerHTML = `<p style="text-align: center; color: var(--text-muted);">No messages generated.</p>`;
+                chatBody.innerHTML = `<p style="text-align: center; color: var(--text-muted); margin-top: 3rem;">No messages saved for this debate.</p>`;
                 return;
             }
 
@@ -633,9 +958,7 @@
                 const wrapper = document.createElement("div");
                 const isTutor = msg.sender === "tutor";
                 wrapper.className = `bubble-wrapper ${isTutor ? 'tutor' : 'learner'}`;
-                
-                // Add tiny delay animations for each speech bubble
-                wrapper.style.animationDelay = `${idx * 0.1}s`;
+                wrapper.style.animationDelay = `${idx * 0.05}s`;
 
                 const header = document.createElement("div");
                 header.className = "bubble-header";
@@ -658,13 +981,15 @@
             // Scroll to bottom
             setTimeout(() => {
                 chatBody.scrollTop = chatBody.scrollHeight;
-            }, 100);
+            }, 50);
         }
 
         // Initial setup
         window.addEventListener("DOMContentLoaded", () => {
             checkHealth();
-            // Poll health state every 10 seconds to detect Ollama starts
+            loadHistory();
+            
+            // Poll health state every 10 seconds
             setInterval(checkHealth, 10000);
         });
     </script>
