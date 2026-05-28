@@ -10,7 +10,8 @@ It simulates an autonomous discussion between a **Tutor Agent** and a **Learner 
 
 - **Real-Time WebSocket Streaming**: Dialogue turns and evaluation results are streamed dynamically from the server to the browser as the graph executes.
 - **SQLite Database Persistence**: Saves all debate sessions and individual chat messages in a local `debates.db` database.
-- **Debate History Sidebar**: Allows users to navigate and reload any past debate and review the full conversation transcript and AI Scorecard.
+- **Content Safety Guardrails**: Intercepts discussion topics before execution. Uses LLM-based safety classification to block harmful or inappropriate requests (e.g. self-harm, cyberattacks, violence) and shows descriptive rejection reasons.
+- **Debate History Sidebar**: Allows users to navigate, review, and delete/exclude past debates, resetting the UI gracefully.
 - **AI Evaluator Node (LLM-as-a-Judge)**: Analyzes the complete transcript, scores the student's understanding from 1 to 10, identifies key strengths/gaps, and recommends next steps.
 - **Flexible Execution Modes**:
   - 💻 **Local Mode**: Runs entirely offline using local LLMs via **Ollama**.
@@ -28,6 +29,7 @@ tutor-learner/
 │   │   ├── __init__.py
 │   │   ├── config.py       # Environment variable parsing and cleaning
 │   │   ├── database.py     # SQLite connection context and CRUD operations
+│   │   ├── guardrails.py   # Content safety evaluation with LLM classification
 │   │   ├── models.py       # Dynamic LangChain LLM instantiators
 │   │   ├── graph/
 │   │   │   ├── __init__.py

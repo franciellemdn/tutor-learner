@@ -19,6 +19,7 @@ from app.database import (
 )
 from app.graph.state import DiscussionState
 from app.graph.workflow import discussion_graph
+from app.guardrails import check_topic_safety
 
 app = FastAPI(title="Tutor-Learner Agent Debate API")
 
@@ -86,6 +87,14 @@ async def websocket_discuss(websocket: WebSocket):
 
         if not topic:
             await websocket.send_json({"error": "Topic is required"})
+            await websocket.close()
+            return
+
+        # Run safety guardrails
+        safety = await check_topic_safety(topic, mode, model_choice)
+        if not safety.get("safe", True):
+            reason = safety.get("reason", "Violates safety guidelines.")
+            await websocket.send_json({"error": f"Topic Blocked by Safety Guardrails: {reason}"})
             await websocket.close()
             return
 
