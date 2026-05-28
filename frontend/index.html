@@ -787,6 +787,101 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        .bubble-header span.badge.human {
+            background: #dbeafe;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        /* Human-in-the-Loop Interactivity Panel Styles */
+        .hitl-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid #bfdbfe;
+            padding: 1rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            border-left: 4px solid #3b82f6;
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        .hitl-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .hitl-header strong {
+            font-size: 0.85rem;
+            color: #1e3a8a;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .hitl-header span {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .hitl-panel textarea {
+            width: 100%;
+            height: 62px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 0.6rem 0.8rem;
+            font-family: inherit;
+            font-size: 0.85rem;
+            resize: none;
+            outline: none;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .hitl-panel textarea:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .hitl-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .btn-hitl-send {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 0.45rem 1.1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-hitl-send:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-hitl-ai {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            padding: 0.45rem 1.1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-hitl-ai:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
         /* Responsive */
         @media (max-width: 820px) {
             .main-grid {
@@ -894,6 +989,19 @@
                             <div class="placeholder-icon">🎓</div>
                             <h3>No Topic Active</h3>
                             <p>Enter a topic and start the discussion, or select a past debate from the sidebar to review.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Human-in-the-Loop Interactivity Panel -->
+                    <div class="hitl-panel" id="hitl-panel" style="display: none;">
+                        <div class="hitl-header">
+                            <strong>✋ Human-in-the-Loop Interruption</strong>
+                            <span>Decide the Learner's response for this turn</span>
+                        </div>
+                        <textarea id="hitl-input" placeholder="Type what the Learner should say next... (e.g. 'But does photosynthesis happen at night?')"></textarea>
+                        <div class="hitl-actions">
+                            <button class="btn-hitl-ai" id="btn-hitl-ai" onclick="sendResumeAI()">Let AI Respond</button>
+                            <button class="btn-hitl-send" id="btn-hitl-send" onclick="sendHumanInput()">Send My Response</button>
                         </div>
                     </div>
                 </div>
@@ -1054,6 +1162,9 @@
             const activeItem = document.getElementById(`history-${id}`);
             if (activeItem) activeItem.classList.add("active");
 
+            // Hide Human-in-the-loop panel if open
+            document.getElementById("hitl-panel").style.display = "none";
+
             // Reset controls to passive state
             document.getElementById("topic-input").value = topic;
             document.getElementById("topic-input").disabled = true;
@@ -1107,6 +1218,9 @@
             }
 
             document.querySelectorAll(".history-item").forEach(item => item.classList.remove("active"));
+            
+            // Hide Human-in-the-loop panel if open
+            document.getElementById("hitl-panel").style.display = "none";
             
             const topicInput = document.getElementById("topic-input");
             topicInput.value = "";
@@ -1195,6 +1309,8 @@
 
                 if (data.type === "message") {
                     appendMessageBubble(data);
+                } else if (data.type === "paused") {
+                    showHITLPanel();
                 } else if (data.type === "evaluation") {
                     renderEvaluationCard(data);
                 } else if (data.type === "complete") {
@@ -1216,6 +1332,7 @@
                 spinner.style.display = "none";
                 btn.querySelector("span").textContent = "Start Discussion";
                 wsConnection = null;
+                document.getElementById("hitl-panel").style.display = "none";
             };
         }
 
@@ -1247,9 +1364,11 @@
             header.className = "bubble-header";
             
             const icon = isTutor ? "👨‍🏫 Tutor" : "🧑‍💻 Learner";
+            const badgeContent = msg.model_used === "human" ? "👤 Human" : msg.model_used;
+            const badgeClass = msg.model_used === "human" ? "badge human" : "badge";
             header.innerHTML = `
                 <strong>${icon}</strong>
-                <span class="badge">${msg.model_used}</span>
+                <span class="${badgeClass}">${badgeContent}</span>
             `;
 
             const bubble = document.createElement("div");
@@ -1330,6 +1449,61 @@
             }, 100);
         }
 
+        // Human-in-the-loop control functions
+        function showHITLPanel() {
+            const panel = document.getElementById("hitl-panel");
+            const input = document.getElementById("hitl-input");
+            
+            panel.style.display = "flex";
+            input.value = "";
+            input.disabled = false;
+            document.getElementById("btn-hitl-send").disabled = false;
+            document.getElementById("btn-hitl-ai").disabled = false;
+            
+            input.focus();
+            
+            const chatBody = document.getElementById("chat-body");
+            setTimeout(() => {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }, 50);
+        }
+
+        function sendHumanInput() {
+            const input = document.getElementById("hitl-input");
+            const text = input.value.trim();
+            if (!text) {
+                alert("Please enter a response first!");
+                return;
+            }
+
+            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                input.disabled = true;
+                document.getElementById("btn-hitl-send").disabled = true;
+                document.getElementById("btn-hitl-ai").disabled = true;
+                
+                document.getElementById("hitl-panel").style.display = "none";
+
+                wsConnection.send(JSON.stringify({
+                    action: "human_input",
+                    text: text
+                }));
+            }
+        }
+
+        function sendResumeAI() {
+            if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                document.getElementById("hitl-input").disabled = true;
+                document.getElementById("btn-hitl-send").disabled = true;
+                document.getElementById("btn-hitl-ai").disabled = true;
+                
+                document.getElementById("hitl-panel").style.display = "none";
+
+                wsConnection.send(JSON.stringify({
+                    action: "resume_ai"
+                }));
+            }
+        }
+
         // Render full list of messages
         function renderConversation(messages) {
             const chatBody = document.getElementById("chat-body");
@@ -1350,9 +1524,11 @@
                 header.className = "bubble-header";
                 
                 const icon = isTutor ? "👨‍🏫 Tutor" : "🧑‍💻 Learner";
+                const badgeContent = msg.model_used === "human" ? "👤 Human" : msg.model_used;
+                const badgeClass = msg.model_used === "human" ? "badge human" : "badge";
                 header.innerHTML = `
                     <strong>${icon}</strong>
-                    <span class="badge">${msg.model_used}</span>
+                    <span class="${badgeClass}">${badgeContent}</span>
                 `;
 
                 const bubble = document.createElement("div");

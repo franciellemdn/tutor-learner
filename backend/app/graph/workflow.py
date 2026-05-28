@@ -1,4 +1,5 @@
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from app.graph.state import DiscussionState
 from app.graph.nodes import tutor_node, learner_node, evaluator_node
 
@@ -45,4 +46,5 @@ workflow.add_conditional_edges(
 workflow.add_edge("evaluator", END)
 
 # Export compiled workflow singleton
-discussion_graph = workflow.compile()
+checkpointer = MemorySaver()
+discussion_graph = workflow.compile(checkpointer=checkpointer, interrupt_before=["learner"])

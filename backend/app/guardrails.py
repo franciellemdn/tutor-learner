@@ -56,22 +56,36 @@ def parse_json_safely(text: str) -> dict:
 async def check_topic_safety(topic: str, mode: str, model_name: str) -> dict:
     """
     Analyzes the safety of the proposed topic.
+    Includes retries with exponential backoff on 429 rate limit errors.
     Returns:
         dict: {"safe": bool, "reason": str}
     """
-    try:
-        llm, _ = get_llm(mode, "moderator", model_name)
-        
-        messages = [
-            ("system", GUARDRAIL_SYSTEM_PROMPT),
-            ("user", f"Analyze this topic: \"{topic}\"")
-        ]
-        
-        # Invoke LLM asynchronously
-        response = await llm.ainvoke(messages)
-        response_text = response.content
-        return parse_json_safely(response_text)
-    except Exception as e:
-        print(f"[Guardrails Warning] Error during safety check: {e}")
-        # Default to safe in case of API outages to prevent blocking the service completely
-        return {"safe": True, "reason": ""}
+    import asyncio
+    max_retries = 3
+    base_delay = 4.0
+    
+    for attempt in range(max_retries):
+        try:
+            llm, _ = get_llm(mode, "moderator", model_name)
+            
+            messages = [
+                ("system", GUARDRAIL_SYSTEM_PROMPT),
+                ("user", f"Analyze this topic: \"{topic}\"")
+            ]
+            
+            # Invoke LLM asynchronously
+            response = await llm.ainvoke(messages)
+            response_text = response.content
+            return parse_json_safely(response_text)
+        except Exception as e:
+            error_str = str(e)
+            # Check if this is a rate limit or if "429" is mentioned in the error message
+            if "429" in error_str and attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                print(f"[Guardrails Warning] Rate limit (429) hit. Retrying in {delay}s... (Attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+                continue
+                
+            print(f"[Guardrails Warning] Error during safety check: {e}")
+            # Default to safe in case of API outages to prevent blocking the service completely
+            return {"safe": True, "reason": ""}
