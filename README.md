@@ -15,7 +15,7 @@ graph TD
     User["👤 User (Frontend Client)"] -->|Start Debate / WebSocket| WS["🔌 WebSocket Server (main.py)"]
     WS -->|Validate Topic| Guard["🛡️ Content Safety Guardrails (guardrails.py)"]
     
-    subgraph Safety Check
+    subgraph "Safety Check"
         Guard -->|Unsafe| Block["🚫 Reject Topic & Close WS Connection"]
         Guard -->|Safe| DB_Setup["💾 Initialize SQLite DB Debate Record"]
     end
@@ -23,7 +23,7 @@ graph TD
     DB_Setup -->|Spawn Subprocess| MCPServer["🔌 FastMCP Search Server (stdio)"]
     DB_Setup -->|Compile & Execute| Graph["🤖 LangGraph Compiled Workflow"]
     
-    subgraph LangGraph Iterative Loop (Max 6 Turns)
+    subgraph "LangGraph Iterative Loop (Max 6 Turns)"
         Graph -->|Node: tutor| Tutor["👨‍🏫 Tutor Agent Node"]
         Tutor -->|ReAct Loop| MCPClient["📦 MCP Client Manager (client.py)"]
         MCPClient -->|STDIO Call| MCPServer
