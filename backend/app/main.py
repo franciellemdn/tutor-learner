@@ -20,6 +20,7 @@ from app.database import (
 from app.graph.state import DiscussionState
 from app.graph.workflow import discussion_graph
 from app.guardrails import check_topic_safety
+from app.mcp.client import MCPClientManager
 
 app = FastAPI(title="Tutor-Learner Agent Debate API")
 
@@ -77,6 +78,7 @@ async def remove_debate(debate_id: int):
 @app.websocket("/ws/discuss")
 async def websocket_discuss(websocket: WebSocket):
     await websocket.accept()
+    mcp_client = None
     try:
         # Receive parameters
         data = await websocket.receive_text()
@@ -100,7 +102,23 @@ async def websocket_discuss(websocket: WebSocket):
 
         # 1. Create a debate session record
         debate_id = create_debate(topic, mode, model_choice)
-        config = {"configurable": {"thread_id": str(debate_id)}}
+        
+        # Connect to local Search MCP server
+        mcp_client = MCPClientManager()
+        langchain_tools = []
+        try:
+            await mcp_client.connect()
+            langchain_tools = await mcp_client.get_langchain_tools()
+        except Exception as mcp_err:
+            print(f"[WS Warning] Failed to connect MCP Search client: {mcp_err}")
+            
+        config = {
+            "configurable": {
+                "thread_id": str(debate_id),
+                "mcp_tools": langchain_tools,
+                "websocket": websocket
+            }
+        }
 
         initial_state: DiscussionState = {
             "topic": topic,
@@ -223,6 +241,8 @@ async def websocket_discuss(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        if mcp_client:
+            await mcp_client.disconnect()
         try:
             await websocket.close()
         except Exception:

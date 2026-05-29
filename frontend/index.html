@@ -793,6 +793,39 @@
             font-weight: 600;
         }
 
+        /* Web Search Indicator styling */
+        .searching-indicator {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(239, 246, 255, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            padding: 0.5rem 0.8rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #1d4ed8;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.05);
+            animation: pulseGlow 1.5s infinite ease-in-out, slideIn 0.2s ease forwards;
+            max-width: 85%;
+        }
+
+        .searching-indicator .spinner-mini {
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(29, 78, 216, 0.15);
+            border-radius: 50%;
+            border-top-color: #1d4ed8;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.8; transform: scale(0.99); }
+            50% { opacity: 1; transform: scale(1.01); }
+        }
+
         /* Human-in-the-Loop Interactivity Panel Styles */
         .hitl-panel {
             background: rgba(255, 255, 255, 0.95);
@@ -1307,8 +1340,15 @@
                     return;
                 }
 
+                // Remove searching indicator if any other type of event is received
+                if (data.type !== "status") {
+                    removeSearchingIndicator();
+                }
+
                 if (data.type === "message") {
                     appendMessageBubble(data);
+                } else if (data.type === "status") {
+                    showSearchingIndicator(data.status);
                 } else if (data.type === "paused") {
                     showHITLPanel();
                 } else if (data.type === "evaluation") {
@@ -1380,6 +1420,42 @@
             chatBody.appendChild(wrapper);
 
             chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // Show web/Wikipedia search status indicator in chat area
+        function showSearchingIndicator(text) {
+            const chatBody = document.getElementById("chat-body");
+            
+            const connectingMsg = document.getElementById("ws-connecting-msg");
+            if (connectingMsg) connectingMsg.remove();
+            
+            let indicator = document.getElementById("searching-indicator");
+            if (!indicator) {
+                indicator = document.createElement("div");
+                indicator.id = "searching-indicator";
+                indicator.className = "searching-indicator";
+                
+                const spinner = document.createElement("div");
+                spinner.className = "spinner-mini";
+                
+                const textNode = document.createElement("span");
+                textNode.id = "searching-indicator-text";
+                
+                indicator.appendChild(spinner);
+                indicator.appendChild(textNode);
+                chatBody.appendChild(indicator);
+            }
+            
+            document.getElementById("searching-indicator-text").textContent = text;
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // Remove web/Wikipedia search status indicator from chat area
+        function removeSearchingIndicator() {
+            const indicator = document.getElementById("searching-indicator");
+            if (indicator) {
+                indicator.remove();
+            }
         }
 
         // Render evaluation scorecard card
