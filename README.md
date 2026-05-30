@@ -89,6 +89,15 @@ graph TD
 6. **SQLite Database Persistence**
    - Maintains a schema of two tables: `debates` (metadata, configuration, evaluation result) and `messages` (sender, content, timestamp, model used). Includes cascade deletion constraints.
 
+7. **Hallucination Mitigation & Self-Correction Verification Loop (`backend/app/graph/nodes.py`)**
+   - **Role-Based Temperature Tuning**: Sets a strict temperature (`0.1`) for factual reasoning agents (Tutor, Evaluator, Moderator) to prevent hallucinations, while keeping a creative temperature (`0.7`) for the Learner to ask curious questions.
+   - **NLI Fact-Checking judgements**: Integrates a post-generation verification step inside the Tutor node (`check_tutor_faithfulness`) that splits responses into claims and verifies them against the retrieved Wikipedia/web search context.
+   - **Self-Correction loop**: If the check flags any claims as unfaithful, the backend triggers a one-time self-correction prompt (streaming a *"⚠️ Recalibrating facts..."* status to the UI) and regenerates the response using the corrected prompt.
+
+8. **Prompt Injection Safety Shield (`backend/app/main.py`)**
+   - Sanitizes text inputs in the Human-in-the-Loop input panel against a blacklist of instruction override phrases (e.g., *"ignore previous instructions"*, *"jailbreak"*).
+   - Safely intercepts malicious strings and triggers a warning bubble in the UI while keeping the graph paused for a safe retry.
+
 ---
 
 ## 📁 Project Structure
@@ -231,4 +240,4 @@ CREATE TABLE IF NOT EXISTS messages (
 
 ---
 
-Made by Francielle Marques (@franciellemdn) with Antigravity 2.0
+Made by Francielle Marques (@franciellemdn) with Antigravity 2
