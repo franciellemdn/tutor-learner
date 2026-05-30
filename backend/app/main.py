@@ -22,6 +22,18 @@ from app.graph.workflow import discussion_graph
 from app.guardrails import check_topic_safety
 from app.mcp.client import MCPClientManager
 
+def detect_prompt_injection(text: str) -> bool:
+    """
+    Checks user inputs for common prompt injection and system instruction override attempts.
+    """
+    blacklist = [
+        "ignore previous", "ignore all", "system prompt", "you are now", 
+        "new instructions", "forget what", "bypass safety", "jailbreak",
+        "translate the above", "override settings"
+    ]
+    lower_text = text.lower()
+    return any(keyword in lower_text for keyword in blacklist)
+
 app = FastAPI(title="Tutor-Learner Agent Debate API")
 
 # Enable CORS for frontend requests
@@ -188,6 +200,17 @@ async def websocket_discuss(websocket: WebSocket):
                     text = client_payload.get("text", "").strip()
                     if not text:
                         await websocket.send_json({"error": "Message cannot be empty."})
+                        continue
+
+                    # Safety check for prompt injection / jailbreaks
+                    if detect_prompt_injection(text):
+                        print(f"[WS Warning] Human input flagged for safety violations: '{text}'")
+                        await websocket.send_json({
+                            "type": "message",
+                            "sender": "learner",
+                            "content": "⚠️ [Safety Shield] Input blocked. Prompt injection or system instruction override attempt detected. Please input a constructive response.",
+                            "model_used": "human"
+                        })
                         continue
 
                     # Save human message to database

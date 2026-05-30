@@ -8,6 +8,9 @@ except ImportError:
 from app.config import OPENROUTER_API_KEY, OPENROUTER_API_BASE, OLLAMA_MODEL, OPENROUTER_MODEL
 
 def get_llm(mode: str, role: str, model_name: str):
+    # Dynamic temperature based on the node role to optimize factual stability vs creativity
+    temp = 0.1 if role in ["tutor", "evaluator", "moderator"] else 0.7
+
     if mode == "cloud":
         if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith("your_"):
             raise HTTPException(
@@ -26,7 +29,7 @@ def get_llm(mode: str, role: str, model_name: str):
             openai_api_key=OPENROUTER_API_KEY,
             base_url=OPENROUTER_API_BASE,
             model=selected_model,
-            temperature=0.7,
+            temperature=temp,
             default_headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "HTTP-Referer": "http://localhost:8000",
@@ -39,7 +42,7 @@ def get_llm(mode: str, role: str, model_name: str):
         try:
             return ChatOllama(
                 model=selected_model,
-                temperature=0.7,
+                temperature=temp,
                 base_url="http://localhost:11434"
             ), selected_model
         except Exception as e:

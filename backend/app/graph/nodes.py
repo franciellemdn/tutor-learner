@@ -2,6 +2,43 @@ import json
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 from app.graph.state import DiscussionState, ChatMessage
 from app.models import get_llm
+from app.guardrails import parse_json_safely
+
+FAITHFULNESS_SYSTEM_PROMPT = """You are an expert fact-checker evaluating the groundedness of an AI Tutor's statement.
+Your job is to analyze the Tutor's Statement against the provided Search Context.
+
+Identify each assertion made in the Tutor's Statement. Verify if it is directly supported or entailed by the Search Context.
+If any factual claim in the Tutor's Statement is unsupported, missing, or contradicts the Search Context, classify it as UNFAITHFUL.
+If the claims are fully supported or are benign conversational statements (like greetings, instructions, or simple transitions), classify as FAITHFUL.
+
+You must respond in strict JSON format with exactly these two keys:
+{
+  "faithful": boolean,
+  "reason": "empty string if faithful, or a detailed description of the unsupported/hallucinated claims"
+}
+Do not return any other text besides the JSON."""
+
+async def check_tutor_faithfulness(statement: str, search_context: str, mode: str, model_choice: str) -> dict:
+    try:
+        # Use low-temperature moderator model
+        llm, _ = get_llm(mode, "moderator", model_choice)
+        
+        user_prompt = (
+            f"Search Context:\n{search_context}\n\n"
+            f"Tutor's Statement to Verify:\n{statement}\n"
+        )
+        
+        messages = [
+            ("system", FAITHFULNESS_SYSTEM_PROMPT),
+            ("user", user_prompt)
+        ]
+        
+        response = await llm.ainvoke(messages)
+        return parse_json_safely(response.content)
+    except Exception as e:
+        print(f"[WS Warning] Error during faithfulness check: {e}")
+        # Default to faithful to prevent blocking the conversation in case of API/rate limit failure
+        return {"faithful": True, "reason": ""}
 
 async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
     messages = state["messages"]
@@ -99,6 +136,49 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
             response = await llm_to_use.ainvoke(messages_to_send)
             
         content = response.content.strip()
+        
+        # Self-correction / Faithfulness validation loop
+        search_texts = []
+        for msg in messages_to_send:
+            if isinstance(msg, ToolMessage):
+                search_texts.append(f"Source Tool ({msg.name}):\n{msg.content}")
+                
+        if search_texts and not content.startswith("[Tutor Error:"):
+            search_context = "\n\n---\n\n".join(search_texts)
+            print(f"[WS DEBUG] Checking Tutor output faithfulness against {len(search_texts)} search tool results...")
+            verification = await check_tutor_faithfulness(content, search_context, mode, model_choice)
+            
+            if not verification.get("faithful", True):
+                reason = verification.get("reason", "Claims not fully supported by search context.")
+                print(f"[WS Warning] Tutor output flagged as unfaithful: {reason}")
+                
+                if websocket:
+                    try:
+                        await websocket.send_json({
+                            "type": "status",
+                            "status": "⚠️ Recalibrating facts and resolving contradictions..."
+                        })
+                    except Exception as ws_err:
+                        print(f"[WS Warning] Failed to send status update: {ws_err}")
+                
+                # Append correction prompt and run a one-time regeneration
+                correction_prompt = (
+                    f"CRITICAL GROUNDEDNESS CHECK WARNING: Your proposed response contained statements not supported "
+                    f"by the retrieved search results. Reason for failure: {reason}\n"
+                    "You must regenerate your response. Keep it under 3 sentences and ground it STRICTLY "
+                    "in the search results provided. If a fact is not explicitly supported, omit it or say you do not know."
+                )
+                
+                messages_to_send.append(response)
+                messages_to_send.append(HumanMessage(content=correction_prompt))
+                
+                try:
+                    corrected_response = await llm_to_use.ainvoke(messages_to_send)
+                    content = corrected_response.content.strip()
+                    print("[WS DEBUG] Tutor output successfully regenerated and corrected.")
+                except Exception as regen_err:
+                    print(f"[WS Warning] Failed to regenerate Tutor response: {regen_err}")
+                    
     except Exception as e:
         content = f"[Tutor Error: Could not generate response. Details: {str(e)}]"
         model_name = "Error Node"
