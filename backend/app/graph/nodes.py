@@ -42,59 +42,80 @@ async def check_tutor_faithfulness(statement: str, search_context: str, mode: st
 
 def extract_fallback_tool_calls(response_msg) -> None:
     """
-    Defensive parser for local models (e.g. on Ollama) that output JSON tool calls 
-    directly in the text content instead of populating response_msg.tool_calls.
+    Defensive parser for local/cloud models that output JSON tool calls directly 
+    in the text content instead of populating response_msg.tool_calls.
     Extracts the tool call, builds the tool_calls metadata list, and strips the 
-    raw JSON block from the text content.
+    raw JSON block from the text content. Handles nested JSON objects.
     """
-    import re
     import uuid
     import json
+    import re
     
     content = response_msg.content.strip()
     if not content:
         return
         
-    # Regex to find JSON object blocks starting with {"name": ...}
-    pattern = r'(\{\s*"name"\s*:\s*"(?:search_wikipedia|web_search)"\s*,.*?\})'
-    matches = re.findall(pattern, content, re.DOTALL)
-    
-    if not matches:
-        return
-        
     tool_calls = list(response_msg.tool_calls) if response_msg.tool_calls else []
     
-    for match in matches:
-        try:
-            parsed = json.loads(match)
-            tool_name = parsed.get("name")
+    # Locate all matching outer JSON object blocks starting with {"name":
+    start_idx = 0
+    while True:
+        # Search for potential JSON pattern, accepting optional spacing
+        match_start = re.search(r'\{\s*"name"\s*:\s*"', content[start_idx:])
+        if not match_start:
+            break
             
-            # Ollama / local models sometimes use "parameters", "arguments", or "args"
-            tool_args = parsed.get("args") or parsed.get("parameters") or parsed.get("arguments") or {}
-            
-            # LangChain structured tool calls expect arguments to be a dictionary
-            if isinstance(tool_args, str):
-                try:
-                    tool_args = json.loads(tool_args)
-                except Exception:
-                    tool_args = {"query": tool_args}
-            
-            call_id = f"call_{uuid.uuid4().hex[:8]}"
-            tool_call = {
-                "name": tool_name,
-                "args": tool_args,
-                "id": call_id
-            }
-            tool_calls.append(tool_call)
-            
-            # Strip the JSON string and any wrapping code blocks from response content
-            content = content.replace(match, "").strip()
-            # Clean up empty markdown blocks if left over
-            content = re.sub(r'```json\s*```', '', content)
-            content = re.sub(r'```\s*```', '', content)
-            content = content.strip()
-        except Exception as e:
-            print(f"[WS Warning] Failed parsing fallback tool call JSON: {e}")
+        idx = start_idx + match_start.start()
+        
+        # Track opening/closing braces to match the outer JSON block
+        brace_count = 0
+        end_idx = -1
+        for i in range(idx, len(content)):
+            char = content[i]
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    end_idx = i + 1
+                    break
+                    
+        if end_idx != -1:
+            candidate = content[idx:end_idx]
+            try:
+                parsed = json.loads(candidate)
+                tool_name = parsed.get("name")
+                if tool_name in ["search_wikipedia", "web_search"]:
+                    tool_args = parsed.get("args") or parsed.get("parameters") or parsed.get("arguments") or {}
+                    
+                    if isinstance(tool_args, str):
+                        try:
+                            tool_args = json.loads(tool_args)
+                        except Exception:
+                            tool_args = {"query": tool_args}
+                            
+                    call_id = f"call_{uuid.uuid4().hex[:8]}"
+                    tool_call = {
+                        "name": tool_name,
+                        "args": tool_args,
+                        "id": call_id
+                    }
+                    tool_calls.append(tool_call)
+                    
+                    # Strip the candidate string and any wrapping code blocks from content
+                    content = content.replace(candidate, "").strip()
+                    content = re.sub(r'```json\s*```', '', content)
+                    content = re.sub(r'```\s*```', '', content)
+                    content = content.strip()
+                    # Reset search index since we modified the string length
+                    start_idx = 0
+                    continue
+            except Exception as parse_err:
+                print(f"[WS Warning] Failed parsing candidate tool call JSON: {parse_err}")
+                
+        start_idx = idx + 8
+        if start_idx >= len(content):
+            break
             
     # Update the message object in-place
     response_msg.content = content
@@ -117,8 +138,10 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
     
     # Bind tools if available
     llm_to_use = llm
+    using_native_tools = False
     if mcp_tools:
         llm_to_use = llm.bind_tools(mcp_tools)
+        using_native_tools = True
     
     history_str = ""
     for msg in messages:
@@ -130,7 +153,11 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
         "Your goal is to explain concepts clearly, keep explanations brief (under 3 sentences), "
         "and ask simple questions or pose quick quizzes to check the learner's understanding.\n"
         "CRITICAL: You must use the search tools at least once per turn to look up facts, definitions, history, "
-        "or summaries related to the topic, even if you already know them. This ensures accuracy and verifies the latest context.\n"
+        "or summaries related to the topic. This ensures accuracy and verifies the latest context.\n"
+        "If you do not have native tool-calling capabilities, you can execute a tool by outputting a JSON block in your text response exactly like this:\n"
+        "{\"name\": \"search_wikipedia\", \"parameters\": {\"query\": \"<search query>\"}}\n"
+        "or\n"
+        "{\"name\": \"web_search\", \"parameters\": {\"query\": \"<search query>\"}}\n"
         "Always stay in character as the Tutor. Do not say things like 'Sure, here is the response:'."
     )
     
@@ -146,8 +173,19 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
     ]
     
     try:
-        # Run async invoke
-        response = await llm_to_use.ainvoke(messages_to_send)
+        try:
+            # Run async invoke (try native tool binding first)
+            response = await llm_to_use.ainvoke(messages_to_send)
+        except Exception as api_err:
+            api_err_str = str(api_err)
+            if using_native_tools and ("does not support tools" in api_err_str or "400" in api_err_str or "not supported" in api_err_str):
+                print(f"[WS Warning] Local model does not support native tools. Falling back to text-prompted tools. Error: {api_err}")
+                llm_to_use = llm # Fallback to unbound LLM
+                using_native_tools = False
+                response = await llm_to_use.ainvoke(messages_to_send)
+            else:
+                raise api_err
+                
         extract_fallback_tool_calls(response)
         
         # Tool execution ReAct loop (limit to max 3 iterations to avoid loops)
@@ -194,7 +232,18 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
                     )
                 )
                 
-            response = await llm_to_use.ainvoke(messages_to_send)
+            try:
+                response = await llm_to_use.ainvoke(messages_to_send)
+            except Exception as api_err:
+                api_err_str = str(api_err)
+                if using_native_tools and ("does not support tools" in api_err_str or "400" in api_err_str or "not supported" in api_err_str):
+                    print(f"[WS Warning] Local model does not support native tools during ReAct loop. Falling back to text-prompted tools.")
+                    llm_to_use = llm
+                    using_native_tools = False
+                    response = await llm_to_use.ainvoke(messages_to_send)
+                else:
+                    raise api_err
+                    
             extract_fallback_tool_calls(response)
             
         content = response.content.strip()
