@@ -40,6 +40,66 @@ async def check_tutor_faithfulness(statement: str, search_context: str, mode: st
         # Default to faithful to prevent blocking the conversation in case of API/rate limit failure
         return {"faithful": True, "reason": ""}
 
+def extract_fallback_tool_calls(response_msg) -> None:
+    """
+    Defensive parser for local models (e.g. on Ollama) that output JSON tool calls 
+    directly in the text content instead of populating response_msg.tool_calls.
+    Extracts the tool call, builds the tool_calls metadata list, and strips the 
+    raw JSON block from the text content.
+    """
+    import re
+    import uuid
+    import json
+    
+    content = response_msg.content.strip()
+    if not content:
+        return
+        
+    # Regex to find JSON object blocks starting with {"name": ...}
+    pattern = r'(\{\s*"name"\s*:\s*"(?:search_wikipedia|web_search)"\s*,.*?\})'
+    matches = re.findall(pattern, content, re.DOTALL)
+    
+    if not matches:
+        return
+        
+    tool_calls = list(response_msg.tool_calls) if response_msg.tool_calls else []
+    
+    for match in matches:
+        try:
+            parsed = json.loads(match)
+            tool_name = parsed.get("name")
+            
+            # Ollama / local models sometimes use "parameters", "arguments", or "args"
+            tool_args = parsed.get("args") or parsed.get("parameters") or parsed.get("arguments") or {}
+            
+            # LangChain structured tool calls expect arguments to be a dictionary
+            if isinstance(tool_args, str):
+                try:
+                    tool_args = json.loads(tool_args)
+                except Exception:
+                    tool_args = {"query": tool_args}
+            
+            call_id = f"call_{uuid.uuid4().hex[:8]}"
+            tool_call = {
+                "name": tool_name,
+                "args": tool_args,
+                "id": call_id
+            }
+            tool_calls.append(tool_call)
+            
+            # Strip the JSON string and any wrapping code blocks from response content
+            content = content.replace(match, "").strip()
+            # Clean up empty markdown blocks if left over
+            content = re.sub(r'```json\s*```', '', content)
+            content = re.sub(r'```\s*```', '', content)
+            content = content.strip()
+        except Exception as e:
+            print(f"[WS Warning] Failed parsing fallback tool call JSON: {e}")
+            
+    # Update the message object in-place
+    response_msg.content = content
+    response_msg.tool_calls = tool_calls
+
 async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
     messages = state["messages"]
     topic = state["topic"]
@@ -88,6 +148,7 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
     try:
         # Run async invoke
         response = await llm_to_use.ainvoke(messages_to_send)
+        extract_fallback_tool_calls(response)
         
         # Tool execution ReAct loop (limit to max 3 iterations to avoid loops)
         loop_limit = 3
@@ -134,6 +195,7 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
                 )
                 
             response = await llm_to_use.ainvoke(messages_to_send)
+            extract_fallback_tool_calls(response)
             
         content = response.content.strip()
         

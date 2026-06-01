@@ -14,3 +14,12 @@ services:
       # Map host.docker.internal to the host IP to allow connecting to host-level Ollama
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount frontend code locally to enable real-time UI updates without rebuilds
+      - ./frontend:/usr/share/nginx/html
+    restart: unless-stopped

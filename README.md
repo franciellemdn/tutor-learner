@@ -168,14 +168,14 @@ This method executes the entire environment inside a Docker container without ne
    ```env
    OLLAMA_BASE_URL=http://host.docker.internal:11434
    ```
-2. **Build and Start Container**:
+2. **Build and Start Containers**:
    Open a terminal in the root directory and run:
    ```bash
    docker-compose up --build
    ```
-   The backend API server launches at `http://localhost:8000`.
+   This compiles the backend server at `http://localhost:8000` and boots up an Nginx instance to host the frontend at `http://localhost:8080`.
 3. **Open the Frontend**:
-   Double-click or open `frontend/index.html` in any web browser.
+   Navigate to [http://localhost:8080](http://localhost:8080) in your web browser.
 
 ---
 
