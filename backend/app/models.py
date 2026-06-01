@@ -5,7 +5,7 @@ try:
     from langchain_ollama import ChatOllama
 except ImportError:
     from langchain_community.chat_models import ChatOllama
-from app.config import OPENROUTER_API_KEY, OPENROUTER_API_BASE, OLLAMA_MODEL, OPENROUTER_MODEL
+from app.config import OPENROUTER_API_KEY, OPENROUTER_API_BASE, OLLAMA_MODEL, OPENROUTER_MODEL, OLLAMA_BASE_URL
 
 def get_llm(mode: str, role: str, model_name: str):
     # Dynamic temperature based on the node role to optimize factual stability vs creativity
@@ -43,7 +43,7 @@ def get_llm(mode: str, role: str, model_name: str):
             return ChatOllama(
                 model=selected_model,
                 temperature=temp,
-                base_url="http://localhost:11434"
+                base_url=OLLAMA_BASE_URL
             ), selected_model
         except Exception as e:
             raise HTTPException(

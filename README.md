@@ -138,9 +138,9 @@ tutor-learner/
 ### Prerequisite 1: Local Model Configuration (Ollama)
 1. Install [Ollama](https://ollama.com/).
 2. Start the Ollama background daemon on your machine.
-3. Download the default model:
+3. Download the default model (Llama 3.1 8B, which natively supports tool-calling):
    ```bash
-   ollama pull llama3
+   ollama pull llama3.1
    ```
    *(To change the model, adjust `OLLAMA_MODEL` inside your `.env` file)*
 
@@ -151,34 +151,49 @@ tutor-learner/
    ```env
    OPENROUTER_API_KEY=your_openrouter_api_key_here
    OPENROUTER_MODEL=google/gemini-2.5-flash
-   OLLAMA_MODEL=llama3
+   OLLAMA_MODEL=llama3.1
    ```
 
 ---
 
 ### Running the Application
 
-#### Step 1: Install Dependencies
-Open your terminal inside the root directory and install requirements:
-```bash
-pip install -r requirements.txt
-```
+You can start the backend API server in two ways: **containerized** with Docker Compose, or **locally** using a Python interpreter.
 
-#### Step 2: Start the FastAPI Server
-Navigate to the `backend/` directory and launch the server:
-```bash
-cd backend
-python uvicorn_run.py
-```
-The server starts at `http://localhost:8000`. You can inspect health status at `http://localhost:8000/health`.
+#### Option A: Running with Docker Compose (Recommended)
+This method executes the entire environment inside a Docker container without needing local package installation.
 
-#### Step 3: Open the Frontend Dashboard
-Double-click or open `frontend/index.html` in any modern web browser.
-1. Check the connection lights in the top right to verify connection status to local and cloud providers.
-2. Select your topic (e.g. *Photosynthesis* or *Quantum Computing*).
-3. Select your provider mode (Local or Cloud).
-4. Click **Start Discussion** to begin.
-5. Review, explore, and delete past sessions from the **Debate History** sidebar.
+1. **Adjust Local Ollama Endpoint (Windows/Mac)**:
+   In your active `backend/.env` file, configure `OLLAMA_BASE_URL` to route traffic back to the host machine:
+   ```env
+   OLLAMA_BASE_URL=http://host.docker.internal:11434
+   ```
+2. **Build and Start Container**:
+   Open a terminal in the root directory and run:
+   ```bash
+   docker-compose up --build
+   ```
+   The backend API server launches at `http://localhost:8000`.
+3. **Open the Frontend**:
+   Double-click or open `frontend/index.html` in any web browser.
+
+---
+
+#### Option B: Running Locally via Python
+1. **Install Dependencies**:
+   Open a terminal in the root directory and install python libraries:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Start the FastAPI Server**:
+   Navigate to the `backend/` directory and run:
+   ```bash
+   cd backend
+   python uvicorn_run.py
+   ```
+   The server starts at `http://localhost:8000`. You can inspect health status at `http://localhost:8000/health`.
+3. **Open the Frontend**:
+   Double-click or open `frontend/index.html` in any web browser.
 
 ---
 

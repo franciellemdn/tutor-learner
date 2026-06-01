@@ -10,5 +10,6 @@ load_dotenv(dotenv_path=env_path, override=True)
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip().strip("'\"")
 OPENROUTER_API_BASE = os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1").strip().strip("'\"")
 
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3").strip().strip("'\"")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1").strip().strip("'\"")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash").strip().strip("'\"")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip().strip("'\"")

@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount debates.db on the host to persist data across container restarts
+      - ./backend/debates.db:/app/debates.db
+    env_file:
+      - backend/.env
+    extra_hosts:
+      # Map host.docker.internal to the host IP to allow connecting to host-level Ollama
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
