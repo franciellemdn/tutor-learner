@@ -224,13 +224,22 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
                 else:
                     tool_result = f"Tool '{tool_name}' not found."
                 
-                messages_to_send.append(
-                    ToolMessage(
-                        content=str(tool_result),
-                        name=tool_name,
-                        tool_call_id=tool_call["id"]
+                if using_native_tools:
+                    messages_to_send.append(
+                        ToolMessage(
+                            content=str(tool_result),
+                            name=tool_name,
+                            tool_call_id=tool_call["id"]
+                        )
                     )
-                )
+                else:
+                    # Fallback text-prompted tool result formatting (uses standard user role to avoid serialization errors)
+                    messages_to_send.append(
+                        HumanMessage(
+                            content=f"[System Search Result for '{tool_name}']:\n{tool_result}\n"
+                                    f"Please use this search context to answer the student's question. Remember to keep it under 3 sentences."
+                        )
+                    )
                 
             try:
                 response = await llm_to_use.ainvoke(messages_to_send)
@@ -247,6 +256,34 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
             extract_fallback_tool_calls(response)
             
         content = response.content.strip()
+        
+        # Safe Fallback: If content is empty (e.g., due to loop limit or serialization bugs), synthesize a response
+        if not content:
+            search_texts = []
+            for msg in messages_to_send:
+                if isinstance(msg, ToolMessage) or (isinstance(msg, HumanMessage) and "[System Search Result" in msg.content):
+                    search_texts.append(msg.content)
+            
+            if search_texts:
+                search_context = "\n\n---\n\n".join(search_texts)
+                print("[WS Warning] Tutor final response text was empty but search results were retrieved. Synthesizing safe summary...")
+                try:
+                    search_summary_prompt = (
+                        "Generate a friendly, brief (under 3 sentences) educational response to the student "
+                        "summarizing the main points of these search results:\n"
+                        f"{search_context}\n"
+                        "Do not output any JSON or tool calls."
+                    )
+                    summary_msg = await llm.ainvoke([
+                        SystemMessage(content="You are a helpful AI Tutor."),
+                        HumanMessage(content=search_summary_prompt)
+                    ])
+                    content = summary_msg.content.strip()
+                except Exception as e:
+                    print(f"[WS Warning] Failed to synthesize summary: {e}")
+            
+            if not content:
+                content = f"I've fetched some details about '{topic}'. What specific questions do you have about it?"
         
         # Self-correction / Faithfulness validation loop
         search_texts = []
@@ -273,11 +310,13 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
                         print(f"[WS Warning] Failed to send status update: {ws_err}")
                 
                 # Append correction prompt and run a one-time regeneration
+                # We strictly forbid tool calls or JSON blocks during this correction step to avoid nested loops
                 correction_prompt = (
                     f"CRITICAL GROUNDEDNESS CHECK WARNING: Your proposed response contained statements not supported "
                     f"by the retrieved search results. Reason for failure: {reason}\n"
                     "You must regenerate your response. Keep it under 3 sentences and ground it STRICTLY "
-                    "in the search results provided. If a fact is not explicitly supported, omit it or say you do not know."
+                    "in the search results provided. If a fact is not explicitly supported, omit it or say you do not know.\n"
+                    "CRITICAL: Do NOT execute any search tools or output any JSON blocks. Output ONLY plain text for the student."
                 )
                 
                 messages_to_send.append(response)
@@ -285,8 +324,14 @@ async def tutor_node(state: DiscussionState, config=None) -> DiscussionState:
                 
                 try:
                     corrected_response = await llm_to_use.ainvoke(messages_to_send)
-                    content = corrected_response.content.strip()
-                    print("[WS DEBUG] Tutor output successfully regenerated and corrected.")
+                    extract_fallback_tool_calls(corrected_response)
+                    regen_content = corrected_response.content.strip()
+                    if regen_content:
+                        content = regen_content
+                        print("[WS DEBUG] Tutor output successfully regenerated and corrected.")
+                    else:
+                        print("[WS Warning] Tutor regenerated response was empty. Retaining original content with disclaimer.")
+                        content = "[Fact Correction Alert] Omitted unverified details. " + content
                 except Exception as regen_err:
                     print(f"[WS Warning] Failed to regenerate Tutor response: {regen_err}")
                     
